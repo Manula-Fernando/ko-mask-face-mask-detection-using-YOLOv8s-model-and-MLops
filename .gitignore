@@ -129,12 +129,10 @@ mlflow.db
 artifacts/
 mlflow-tmp/
 
-# DVC
-.dvc/
-.dvcignore
-.dvc/cache/
-.dvc/tmp/
-.dvc/plots/
+# DVC - Track metadata files but ignore cache
+.dvc/config.local
+.dvc/tmp
+.dvc/cache
 
 # Data files
 data/raw/*
