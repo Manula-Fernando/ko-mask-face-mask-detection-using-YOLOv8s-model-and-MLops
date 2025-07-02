@@ -5,10 +5,12 @@ stages:
     cmd: python src/data_preprocessing.py
     deps:
       - src/data_preprocessing.py
-      - data/raw
+      - data/raw/images.zip
       - config/config.yaml
     outs:
-      - data/processed
+      - data/processed/train
+      - data/processed/val
+      - data/processed/test
     metrics:
       - data/processed/data_stats.json
     
@@ -16,22 +18,24 @@ stages:
     cmd: python src/model_training.py
     deps:
       - src/model_training.py
-      - data/processed
+      - data/processed/train
+      - data/processed/val
       - config/config.yaml
     outs:
-      - models
+      - models/mask_detector.h5
+      - models/best_mask_detector.h5
     metrics:
       - models/metrics.json
     plots:
       - models/training_history.json
-      - models/confusion_matrix.json
       
   model_evaluation:
     cmd: python src/predict.py --evaluate
     deps:
       - src/predict.py
-      - models
-      - data/processed
+      - models/mask_detector.h5
+      - data/processed/test
+      - config/config.yaml
     metrics:
       - models/evaluation_metrics.json
     plots:
@@ -51,12 +55,6 @@ plots:
         - loss
         - val_loss
       title: "Training History - Loss"
-      
-  - models/confusion_matrix.json:
-      template: confusion
-      x: actual
-      y: predicted
-      title: "Confusion Matrix"
 
 params:
 - config/config.yaml

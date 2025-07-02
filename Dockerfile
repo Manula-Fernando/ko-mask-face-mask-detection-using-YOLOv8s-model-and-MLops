@@ -1,16 +1,15 @@
-# Use Python 3.9 slim image as base
-FROM python:3.9-slim
+# Dockerfile for Face Mask Detection MLOps - Phase 3
+# Use an official Python runtime as a parent image
+FROM python:3.8-slim
 
-# Set working directory
+# Set the working directory to /app
 WORKDIR /app
 
 # Set environment variables
 ENV PYTHONPATH=/app
-ENV FLASK_APP=app/main.py
-ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies
+# Install system dependencies for OpenCV and other libraries
 RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -18,39 +17,30 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxrender-dev \
     libgomp1 \
-    libglib2.0-0 \
     libgtk-3-0 \
     libavcodec-dev \
     libavformat-dev \
     libswscale-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy the current directory contents into the container at /app
+COPY . /app
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# We use headless opencv to avoid display issues on servers
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir opencv-python-headless && \
+    pip install --no-cache-dir gunicorn && \
+    grep -v opencv-python requirements.txt > temp_requirements.txt || cp requirements.txt temp_requirements.txt && \
+    pip install --no-cache-dir -r temp_requirements.txt
 
-# Copy application code
-COPY . .
-
-# Create necessary directories
-RUN mkdir -p data/raw data/processed models logs
-
-# Set proper permissions
-RUN chmod +x app/main.py
-
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash appuser && \
-    chown -R appuser:appuser /app
-USER appuser
-
-# Expose port
-EXPOSE 5000
+# Make port 8000 available to the world outside this container
+EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/health || exit 1
+    CMD curl -f http://localhost:8000/ || exit 1
 
-# Default command
-CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"]
+# Run main.py when the container launches using gunicorn for production
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--timeout", "120", "--workers", "1", "app.main:app"]

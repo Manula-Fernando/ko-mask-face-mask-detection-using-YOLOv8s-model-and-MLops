@@ -1,30 +1,31 @@
 """
 Model training pipeline for face mask detection.
-This module implements the training pipeline with MLflow integration.
+This module implements the training pipeline using MobileNetV2.
 """
 
+import warnings
+warnings.filterwarnings("ignore")
 import os
 import numpy as np
 import yaml
 import logging
-import argparse
+import json
 from datetime import datetime
 from typing import Tuple, Dict, Any
+import matplotlib.pyplot as plt
 
 import tensorflow as tf
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, AveragePooling2D, Flatten, BatchNormalization, Input
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from sklearn.metrics import classification_report, confusion_matrix
 
-import mlflow
-import mlflow.tensorflow
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-from data_preprocessing import DataPreprocessor
+try:
+    from .data_preprocessing import DataPreprocessor
+except ImportError:
+    from data_preprocessing import DataPreprocessor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -35,284 +36,323 @@ class FaceMaskDetector:
     
     def __init__(self, config_path: str = "config/config.yaml"):
         """Initialize the model with configuration."""
-        with open(config_path, 'r') as file:
-            self.config = yaml.safe_load(file)
-        
-        self.model_config = self.config['model']
-        self.training_config = self.config['training']
-        self.mlflow_config = self.config['mlflow']
-        
+        self.config_path = config_path
+        self.load_config()
         self.model = None
+        self.history = None
         
         logger.info("FaceMaskDetector initialized")
     
+    def load_config(self):
+        """Load configuration from YAML file."""
+        try:
+            with open(self.config_path, 'r') as file:
+                self.config = yaml.safe_load(file)
+            
+            self.model_config = self.config['model']
+            self.training_config = self.config['training']
+            self.paths_config = self.config['paths']
+        except FileNotFoundError:
+            logger.warning(f"Config file {self.config_path} not found. Using default configuration.")
+            self.model_config = {
+                'input_shape': [224, 224, 3],
+                'num_classes': 3,
+                'dropout_rate': 0.5
+            }
+            self.training_config = {
+                'epochs': 30,
+                'batch_size': 32,
+                'learning_rate': 1e-4,
+                'patience': 10
+            }
+            self.paths_config = {
+                'models_dir': 'models',
+                'model_name': 'mask_detector.h5'
+            }
+    
     def build_model(self) -> Model:
-        """Build the face mask detection model."""
-        logger.info("Building MobileNetV2-based model...")
+        """Build the face mask detection model (same architecture as original)."""
+        logger.info("Building MobileNetV2-based face mask detection model...")
         
-        # Load pre-trained MobileNetV2
+        # Model parameters from original code
+        INIT_LR = self.training_config['learning_rate']
+        input_shape = tuple(self.model_config['input_shape'])
+        
+        # Input tensor
+        input_tensor = Input(shape=input_shape)
+        
+        # Base model - MobileNetV2
         base_model = MobileNetV2(
-            input_shape=tuple(self.model_config['input_shape']),
-            alpha=1.0,
+            weights="imagenet",
             include_top=False,
-            weights='imagenet'
+            input_tensor=input_tensor
         )
+        
+        # Add custom layers exactly as per original implementation
+        x = base_model.output
+        x = AveragePooling2D(pool_size=(2, 2))(x)
+        x = Dropout(0.4)(x)
+        x = BatchNormalization()(x)
+        x = Flatten(name="flatten")(x)
+        x = Dense(1000, activation="relu")(x)
+        x = Dropout(0.5)(x)
+        predictions = Dense(self.model_config['num_classes'], activation="softmax")(x)
+        
+        # Create the model
+        model = Model(inputs=base_model.input, outputs=predictions)
         
         # Freeze base model layers
-        base_model.trainable = False
+        for layer in base_model.layers:
+            layer.trainable = False
         
-        # Add custom classification head
-        inputs = tf.keras.Input(shape=tuple(self.model_config['input_shape']))
-        x = base_model(inputs, training=False)
-        x = GlobalAveragePooling2D()(x)
-        x = Dropout(self.model_config['dropout_rate'])(x)
-        outputs = Dense(
-            self.model_config['num_classes'],
-            activation='softmax',
-            name='predictions'
-        )(x)
-        
-        model = Model(inputs, outputs)
-        
-        # Compile model
-        model.compile(
-            optimizer=Adam(learning_rate=self.model_config['learning_rate']),
-            loss='categorical_crossentropy',
-            metrics=['accuracy']
-        )
-        
-        self.model = model
-        logger.info("Model built successfully")
-        logger.info(f"Total parameters: {model.count_params():,}")
-        
+        logger.info("Model architecture built successfully")
         return model
     
-    def create_callbacks(self, model_save_path: str) -> list:
-        """Create training callbacks."""
+    def compile_model(self, model: Model) -> Model:
+        """Compile the model (same as original)."""
+        logger.info("Compiling model...")
+        
+        INIT_LR = self.training_config['learning_rate']
+        
+        # Optimizer with learning rate as in original code
+        opt = Adam(learning_rate=INIT_LR)
+        
+        model.compile(
+            loss="categorical_crossentropy",
+            optimizer=opt,
+            metrics=["accuracy"]
+        )
+        
+        logger.info("Model compiled successfully")
+        return model
+    
+    def get_callbacks(self):
+        """Get training callbacks."""
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        models_dir = os.path.join(base_path, self.paths_config['models_dir'])
+        os.makedirs(models_dir, exist_ok=True)
+        
         callbacks = [
             EarlyStopping(
                 monitor='val_loss',
-                patience=self.training_config['early_stopping_patience'],
+                patience=self.training_config.get('patience', 10),
                 restore_best_weights=True,
                 verbose=1
             ),
             ReduceLROnPlateau(
                 monitor='val_loss',
-                factor=self.training_config['reduce_lr_factor'],
-                patience=self.training_config['reduce_lr_patience'],
-                min_lr=self.training_config['min_lr'],
+                factor=0.2,
+                patience=5,
+                min_lr=1e-7,
                 verbose=1
             ),
             ModelCheckpoint(
-                filepath=model_save_path,
+                os.path.join(models_dir, 'best_mask_detector.h5'),
                 monitor='val_accuracy',
                 save_best_only=True,
-                save_weights_only=False,
+                mode='max',
                 verbose=1
             )
         ]
         
         return callbacks
     
-    def train_model(self, train_generator, val_generator, 
-                   X_val: np.ndarray, y_val: np.ndarray) -> Dict[str, Any]:
+    def train_model(self, train_generator, val_generator):
         """Train the face mask detection model."""
         logger.info("Starting model training...")
         
-        # Create model save directory
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        model_save_path = f"models/face_mask_detector_{timestamp}.h5"
-        os.makedirs("models", exist_ok=True)
+        # Build and compile model
+        self.model = self.build_model()
+        self.model = self.compile_model(self.model)
         
-        # Create callbacks
-        callbacks = self.create_callbacks(model_save_path)
+        # Training parameters
+        EPOCHS = self.training_config['epochs']
         
-        # Train model
-        history = self.model.fit(
+        # Calculate steps per epoch
+        STEP_SIZE_TRAIN = train_generator.n // train_generator.batch_size
+        STEP_SIZE_VALID = val_generator.n // val_generator.batch_size
+        
+        logger.info(f"Training for {EPOCHS} epochs")
+        logger.info(f"Training steps per epoch: {STEP_SIZE_TRAIN}")
+        logger.info(f"Validation steps per epoch: {STEP_SIZE_VALID}")
+        
+        # Get callbacks
+        callbacks = self.get_callbacks()
+        
+        # Train the model using fit (updated from fit_generator)
+        self.history = self.model.fit(
             train_generator,
-            epochs=self.training_config['epochs'],
+            steps_per_epoch=STEP_SIZE_TRAIN,
             validation_data=val_generator,
+            validation_steps=STEP_SIZE_VALID,
+            epochs=EPOCHS,
             callbacks=callbacks,
             verbose=1
         )
         
-        # Evaluate model
-        val_loss, val_accuracy = self.model.evaluate(X_val, y_val, verbose=0)
+        logger.info("Model training completed")
+        return self.history
+    
+    def visualize_training_history(self):
+        """Visualize model training performance (same as original)."""
+        if self.history is None:
+            logger.warning("No training history available for visualization")
+            return
         
-        # Make predictions for detailed metrics
-        y_pred = self.model.predict(X_val)
-        y_pred_classes = np.argmax(y_pred, axis=1)
-        y_true_classes = np.argmax(y_val, axis=1)
+        logger.info("Visualizing training history...")
         
-        # Calculate detailed metrics
-        class_report = classification_report(
-            y_true_classes, y_pred_classes,
-            target_names=['No Mask', 'Mask'],
-            output_dict=True
-        )
+        # Extract metrics
+        acc = self.history.history['accuracy']
+        val_acc = self.history.history['val_accuracy']
+        loss = self.history.history['loss']
+        val_loss = self.history.history['val_loss']
         
-        conf_matrix = confusion_matrix(y_true_classes, y_pred_classes)
+        epochs_range = range(len(acc))
         
-        results = {
-            'history': history.history,
-            'val_loss': val_loss,
-            'val_accuracy': val_accuracy,
-            'classification_report': class_report,
-            'confusion_matrix': conf_matrix,
-            'model_path': model_save_path
+        # Create plots exactly as in original
+        plt.style.use("ggplot")
+        plt.figure(figsize=(12, 12))
+        
+        # Accuracy plot
+        plt.subplot(1, 2, 1)
+        plt.plot(epochs_range, acc, label='Training Accuracy')
+        plt.plot(epochs_range, val_acc, label='Validation Accuracy')
+        plt.legend(loc='lower right')
+        plt.title('Training and Validation Accuracy')
+        plt.xlabel('Epochs')
+        plt.ylabel('Accuracy')
+        
+        # Loss plot
+        plt.subplot(1, 2, 2)
+        plt.plot(epochs_range, loss, label='Training Loss')
+        plt.plot(epochs_range, val_loss, label='Validation Loss')
+        plt.legend(loc='upper right')
+        plt.title('Training and Validation Loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        
+        plt.tight_layout()
+        plt.show()
+    
+    def save_model(self):
+        """Save the trained model."""
+        if self.model is None:
+            logger.error("No model to save. Train the model first.")
+            return
+        
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        models_dir = os.path.join(base_path, self.paths_config['models_dir'])
+        model_path = os.path.join(models_dir, self.paths_config['model_name'])
+        
+        logger.info(f"Saving mask detector model to {model_path}...")
+        self.model.save(model_path)
+        logger.info("Model saved successfully")
+    
+    def save_training_metrics(self):
+        """Save training metrics to JSON file."""
+        if self.history is None:
+            logger.warning("No training history to save")
+            return
+        
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        models_dir = os.path.join(base_path, self.paths_config['models_dir'])
+        
+        # Training history for plots
+        history_data = {
+            'epoch': list(range(len(self.history.history['accuracy']))),
+            'accuracy': self.history.history['accuracy'],
+            'val_accuracy': self.history.history['val_accuracy'],
+            'loss': self.history.history['loss'],
+            'val_loss': self.history.history['val_loss']
         }
         
-        logger.info(f"Training completed. Validation accuracy: {val_accuracy:.4f}")
-        return results
-    
-    def log_results_to_mlflow(self, results: Dict[str, Any], 
-                             run_name: str = None):
-        """Log training results to MLflow."""
-        logger.info("Logging results to MLflow...")
+        # Save training history
+        history_path = os.path.join(models_dir, 'training_history.json')
+        with open(history_path, 'w') as f:
+            json.dump(history_data, f, indent=2)
         
-        with mlflow.start_run(run_name=run_name):
-            # Log parameters
-            mlflow.log_param("model_architecture", self.model_config['architecture'])
-            mlflow.log_param("input_shape", self.model_config['input_shape'])
-            mlflow.log_param("learning_rate", self.model_config['learning_rate'])
-            mlflow.log_param("dropout_rate", self.model_config['dropout_rate'])
-            mlflow.log_param("epochs", self.training_config['epochs'])
-            mlflow.log_param("batch_size", self.config['data']['batch_size'])
-            
-            # Log metrics
-            mlflow.log_metric("val_loss", results['val_loss'])
-            mlflow.log_metric("val_accuracy", results['val_accuracy'])
-            
-            # Log classification metrics
-            class_report = results['classification_report']
-            mlflow.log_metric("precision_mask", class_report['Mask']['precision'])
-            mlflow.log_metric("recall_mask", class_report['Mask']['recall'])
-            mlflow.log_metric("f1_score_mask", class_report['Mask']['f1-score'])
-            mlflow.log_metric("precision_no_mask", class_report['No Mask']['precision'])
-            mlflow.log_metric("recall_no_mask", class_report['No Mask']['recall'])
-            mlflow.log_metric("f1_score_no_mask", class_report['No Mask']['f1-score'])
-            
-            # Plot and log training history
-            self._plot_training_history(results['history'])
-            
-            # Plot and log confusion matrix
-            self._plot_confusion_matrix(results['confusion_matrix'])
-            
-            # Log model
-            mlflow.tensorflow.log_model(
-                self.model,
-                "model",
-                registered_model_name="face_mask_detector"
-            )
-            
-            # Log model file
-            mlflow.log_artifact(results['model_path'])
-    
-    def _plot_training_history(self, history: Dict[str, list]):
-        """Plot and save training history."""
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+        # Final metrics
+        final_metrics = {
+            'final_train_accuracy': float(self.history.history['accuracy'][-1]),
+            'final_val_accuracy': float(self.history.history['val_accuracy'][-1]),
+            'final_train_loss': float(self.history.history['loss'][-1]),
+            'final_val_loss': float(self.history.history['val_loss'][-1]),
+            'best_val_accuracy': float(max(self.history.history['val_accuracy'])),
+            'total_epochs': len(self.history.history['accuracy'])
+        }
         
-        # Plot accuracy
-        ax1.plot(history['accuracy'], label='Training Accuracy')
-        ax1.plot(history['val_accuracy'], label='Validation Accuracy')
-        ax1.set_title('Model Accuracy')
-        ax1.set_xlabel('Epoch')
-        ax1.set_ylabel('Accuracy')
-        ax1.legend()
-        ax1.grid(True)
+        # Save metrics
+        metrics_path = os.path.join(models_dir, 'metrics.json')
+        with open(metrics_path, 'w') as f:
+            json.dump(final_metrics, f, indent=2)
         
-        # Plot loss
-        ax2.plot(history['loss'], label='Training Loss')
-        ax2.plot(history['val_loss'], label='Validation Loss')
-        ax2.set_title('Model Loss')
-        ax2.set_xlabel('Epoch')
-        ax2.set_ylabel('Loss')
-        ax2.legend()
-        ax2.grid(True)
+        logger.info(f"Training metrics saved to {models_dir}")
+    
+    def run_training_pipeline(self):
+        """Run the complete training pipeline."""
+        logger.info("Starting complete training pipeline...")
         
-        plt.tight_layout()
-        plt.savefig('training_history.png')
-        mlflow.log_artifact('training_history.png')
-        plt.close()
-    
-    def _plot_confusion_matrix(self, conf_matrix: np.ndarray):
-        """Plot and save confusion matrix."""
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(
-            conf_matrix,
-            annot=True,
-            fmt='d',
-            cmap='Blues',
-            xticklabels=['No Mask', 'Mask'],
-            yticklabels=['No Mask', 'Mask']
-        )
-        plt.title('Confusion Matrix')
-        plt.xlabel('Predicted Label')
-        plt.ylabel('True Label')
-        plt.tight_layout()
-        plt.savefig('confusion_matrix.png')
-        mlflow.log_artifact('confusion_matrix.png')
-        plt.close()
-
-def load_processed_data() -> Tuple[np.ndarray, ...]:
-    """Load preprocessed data."""
-    logger.info("Loading preprocessed data...")
-    
-    data_path = "data/processed"
-    
-    X_train = np.load(os.path.join(data_path, 'X_train.npy'))
-    y_train = np.load(os.path.join(data_path, 'y_train.npy'))
-    X_val = np.load(os.path.join(data_path, 'X_val.npy'))
-    y_val = np.load(os.path.join(data_path, 'y_val.npy'))
-    X_test = np.load(os.path.join(data_path, 'X_test.npy'))
-    y_test = np.load(os.path.join(data_path, 'y_test.npy'))
-    
-    logger.info("Data loaded successfully")
-    return X_train, y_train, X_val, y_val, X_test, y_test
-
-def main():
-    """Main training pipeline."""
-    parser = argparse.ArgumentParser(description='Train face mask detection model')
-    parser.add_argument('--experiment-name', type=str, 
-                       default='face_mask_detection',
-                       help='MLflow experiment name')
-    parser.add_argument('--run-name', type=str, 
-                       default=None,
-                       help='MLflow run name')
-    args = parser.parse_args()
-    
-    # Set MLflow experiment
-    mlflow.set_experiment(args.experiment_name)
-    
-    try:
-        # Load data
-        X_train, y_train, X_val, y_val, X_test, y_test = load_processed_data()
+        # Initialize data preprocessor
+        preprocessor = DataPreprocessor(self.config_path)
         
-        # Initialize preprocessor for data generators
-        preprocessor = DataPreprocessor()
-        train_generator, val_generator = preprocessor.create_data_generators(
-            X_train, y_train, X_val, y_val
-        )
+        # Process data
+        train_generator, val_generator, classes = preprocessor.process_full_pipeline()
         
-        # Initialize and build model
-        detector = FaceMaskDetector()
-        detector.build_model()
+        if train_generator is None:
+            logger.error("Data preprocessing failed. Cannot proceed with training.")
+            return None
         
         # Train model
-        results = detector.train_model(train_generator, val_generator, X_val, y_val)
+        history = self.train_model(train_generator, val_generator)
         
-        # Log results to MLflow
-        run_name = args.run_name or f"mask_detector_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        detector.log_results_to_mlflow(results, run_name)
+        # Visualize training results
+        self.visualize_training_history()
         
-        logger.info("Training pipeline completed successfully!")
+        # Save model and metrics
+        self.save_model()
+        self.save_training_metrics()
         
-    except FileNotFoundError:
-        logger.error("Preprocessed data not found. Please run data preprocessing first.")
-        logger.info("Run: python src/data_preprocessing.py")
-    except Exception as e:
-        logger.error(f"Training failed: {str(e)}")
-        raise
+        # Log final metrics
+        final_train_acc = history.history['accuracy'][-1]
+        final_val_acc = history.history['val_accuracy'][-1]
+        final_train_loss = history.history['loss'][-1]
+        final_val_loss = history.history['val_loss'][-1]
+        
+        logger.info("Training Pipeline Complete!")
+        logger.info(f"Final Training Accuracy: {final_train_acc:.4f}")
+        logger.info(f"Final Validation Accuracy: {final_val_acc:.4f}")
+        logger.info(f"Final Training Loss: {final_train_loss:.4f}")
+        logger.info(f"Final Validation Loss: {final_val_loss:.4f}")
+        
+        return {
+            'train_accuracy': final_train_acc,
+            'val_accuracy': final_val_acc,
+            'train_loss': final_train_loss,
+            'val_loss': final_val_loss,
+            'classes': classes
+        }
+
+
+def main():
+    """Main function to run the training pipeline."""
+    logger.info("Starting Face Mask Detection Model Training...")
+    
+    # Initialize detector
+    detector = FaceMaskDetector()
+    
+    # Run training pipeline
+    results = detector.run_training_pipeline()
+    
+    if results:
+        logger.info("Training completed successfully!")
+        for key, value in results.items():
+            if key != 'classes':
+                logger.info(f"{key}: {value:.4f}")
+            else:
+                logger.info(f"{key}: {value}")
+    else:
+        logger.error("Training failed!")
+
 
 if __name__ == "__main__":
     main()

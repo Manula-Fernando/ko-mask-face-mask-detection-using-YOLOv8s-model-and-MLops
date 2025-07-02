@@ -1,32 +1,44 @@
-# Face Mask Detection MLOps Configuration
+# config/config.yaml
+paths:
+  raw_data_zip: "data/raw/images.zip"
+  unzip_dir: "data/raw/temp_unzip"
+  images_dir: "data/raw/images"
+  annotations_dir: "data/raw/annotations"
+  train_dir: "data/processed/train"
+  val_dir: "data/processed/val"
+  test_dir: "data/processed/test"
+  models_dir: "models"
+  model_name: "mask_detector.h5"
+  reports_dir: "reports"
+  mlflow_uri: "mlruns"
+  haarcascade: "models/haarcascade_frontalface_default.xml"
 
-# Data Configuration
 data:
-  raw_data_path: "data/raw"
-  processed_data_path: "data/processed"
-  train_split: 0.8
-  validation_split: 0.1
-  test_split: 0.1
   image_size: [224, 224]
   batch_size: 32
-  classes: ["with_mask", "without_mask"]
+  classes:
+    - 'with_mask'
+    - 'without_mask'
+    - 'mask_weared_incorrect'
+  class_mapping:
+    'with_mask': 0
+    'without_mask': 1
+    'mask_weared_incorrect': 2
+  validation_split: 0.2
+  test_split: 0.1
 
-# Model Configuration
 model:
-  name: "face_mask_detector"
-  architecture: "MobileNetV2"
   input_shape: [224, 224, 3]
-  num_classes: 2
+  num_classes: 3
   dropout_rate: 0.5
-  learning_rate: 0.001
   
-# Training Configuration
+# Training Configuration (keeping original hyperparameters)
 training:
-  epochs: 20
-  early_stopping_patience: 5
-  reduce_lr_patience: 3
-  reduce_lr_factor: 0.2
-  min_lr: 0.00001
+  epochs: 30
+  batch_size: 32
+  learning_rate: 0.0001
+  patience: 10
+  monitor: 'val_accuracy'
   
 # MLflow Configuration
 mlflow:
@@ -40,7 +52,7 @@ monitoring:
   drift_threshold: 0.1
   performance_threshold: 0.85
   log_predictions: true
-  alert_email: "admin@example.com"
+  alert_email: "wwmsfernando@gmail.com"
   
 # Deployment Configuration
 deployment:
