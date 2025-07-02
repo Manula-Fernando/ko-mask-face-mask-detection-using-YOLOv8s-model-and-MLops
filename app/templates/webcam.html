@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Detection - Face Mask Detection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .webcam-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        .video-container {
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #000;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+        }
+        #webcam {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .video-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 10;
+        }
+        .status-indicator {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: inline-block;
+        }
+        .status-indicator.active {
+            background: rgba(40, 167, 69, 0.9);
+        }
+        .status-indicator.inactive {
+            background: rgba(220, 53, 69, 0.9);
+        }
+        .control-btn {
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            border: none;
+            font-size: 24px;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+        }
+        .control-btn:hover {
+            transform: scale(1.1);
+        }
+        .start-btn {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+        }
+        .stop-btn {
+            background: linear-gradient(45deg, #dc3545, #fd7e14);
+            color: white;
+        }
+        .capture-btn {
+            background: linear-gradient(45deg, #007bff, #6f42c1);
+            color: white;
+        }
+        .detection-results {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .detection-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #007bff;
+        }
+        .detection-item.mask {
+            border-left-color: #28a745;
+        }
+        .detection-item.no-mask {
+            border-left-color: #dc3545;
+        }
+        .permission-request {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255, 193, 7, 0.1);
+            border-radius: 15px;
+            border: 2px dashed #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="webcam-container p-4">
+                    <div class="text-center mb-4">
+                        <h1 class="display-4 mb-3">
+                            <i class="fas fa-video text-primary"></i>
+                            Real-time Detection
+                        </h1>
+                        <p class="lead text-muted">Live face mask detection using your webcam</p>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-lg-8">
+                            <div class="video-container">
+                                <div class="video-overlay">
+                                    <span class="status-indicator" id="statusIndicator">
+                                        <i class="fas fa-circle me-2"></i>
+                                        <span id="statusText">Inactive</span>
+                                    </span>
+                                </div>
+                                
+                                <div class="permission-request" id="permissionRequest">
+                                    <i class="fas fa-camera fa-3x text-warning mb-3"></i>
+                                    <h4>Camera Permission Required</h4>
+                                    <p class="text-muted">Please allow camera access to use real-time detection</p>
+                                    <button class="btn btn-warning btn-lg" onclick="startWebcam()">
+                                        <i class="fas fa-play me-2"></i>Enable Camera
+                                    </button>
+                                </div>
+                                
+                                <video id="webcam" autoplay muted style="display: none;"></video>
+                                <canvas id="canvas" style="display: none;"></canvas>
+                            </div>
+
+                            <div class="text-center mt-4">
+                                <button class="control-btn start-btn" id="startBtn" onclick="startDetection()" disabled>
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button class="control-btn stop-btn" id="stopBtn" onclick="stopDetection()" disabled>
+                                    <i class="fas fa-stop"></i>
+                                </button>
+                                <button class="control-btn capture-btn" id="captureBtn" onclick="captureFrame()" disabled>
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-4">
+                            <div class="detection-results">
+                                <h5 class="mb-3">
+                                    <i class="fas fa-chart-bar text-primary me-2"></i>
+                                    Detection Results
+                                </h5>
+                                <div id="detectionList">
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-info-circle fa-2x mb-2"></i>
+                                        <p>Start detection to see results</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="detection-results mt-3">
+                                <h6>
+                                    <i class="fas fa-cog text-secondary me-2"></i>
+                                    Settings
+                                </h6>
+                                <div class="mb-3">
+                                    <label for="detectionInterval" class="form-label">Detection Interval (ms)</label>
+                                    <input type="range" class="form-range" id="detectionInterval" min="100" max="2000" value="500">
+                                    <small class="text-muted">Current: <span id="intervalValue">500</span>ms</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="confidenceThreshold" class="form-label">Confidence Threshold</label>
+                                    <input type="range" class="form-range" id="confidenceThreshold" min="0.1" max="1.0" step="0.1" value="0.5">
+                                    <small class="text-muted">Current: <span id="thresholdValue">0.5</span></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <a href="/" class="btn btn-outline-secondary me-3">
+                            <i class="fas fa-home me-2"></i>Back to Home
+                        </a>
+                        <a href="/upload" class="btn btn-outline-primary">
+                            <i class="fas fa-upload me-2"></i>Upload Image
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let webcamStream = null;
+        let detectionInterval = null;
+        let isDetecting = false;
+        let detectionCount = 0;
+
+        const webcam = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const permissionRequest = document.getElementById('permissionRequest');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const detectionList = document.getElementById('detectionList');
+
+        // Settings
+        const intervalSlider = document.getElementById('detectionInterval');
+        const thresholdSlider = document.getElementById('confidenceThreshold');
+        const intervalValue = document.getElementById('intervalValue');
+        const thresholdValue = document.getElementById('thresholdValue');
+
+        intervalSlider.addEventListener('input', (e) => {
+            intervalValue.textContent = e.target.value;
+            if (isDetecting) {
+                stopDetection();
+                setTimeout(() => startDetection(), 100);
+            }
+        });
+
+        thresholdSlider.addEventListener('input', (e) => {
+            thresholdValue.textContent = e.target.value;
+        });
+
+        async function startWebcam() {
+            try {
+                webcamStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 } 
+                });
+                
+                webcam.srcObject = webcamStream;
+                webcam.style.display = 'block';
+                permissionRequest.style.display = 'none';
+                
+                updateStatus('Ready', 'active');
+                startBtn.disabled = false;
+                captureBtn.disabled = false;
+                
+            } catch (error) {
+                console.error('Error accessing webcam:', error);
+                alert('Unable to access webcam. Please check permissions and try again.');
+            }
+        }
+
+        function startDetection() {
+            if (!webcamStream || isDetecting) return;
+            
+            isDetecting = true;
+            updateStatus('Detecting', 'active');
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            
+            const interval = parseInt(intervalSlider.value);
+            detectionInterval = setInterval(detectFaces, interval);
+            
+            // Clear previous results
+            detectionList.innerHTML = '';
+            detectionCount = 0;
+        }
+
+        function stopDetection() {
+            if (!isDetecting) return;
+            
+            isDetecting = false;
+            clearInterval(detectionInterval);
+            
+            updateStatus('Ready', 'active');
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        }
+
+        function updateStatus(text, status) {
+            statusText.textContent = text;
+            statusIndicator.className = `status-indicator ${status}`;
+        }
+
+        async function detectFaces() {
+            if (!webcam.videoWidth || !webcam.videoHeight) return;
+            
+            // Set canvas size to match video
+            canvas.width = webcam.videoWidth;
+            canvas.height = webcam.videoHeight;
+            
+            // Draw current frame to canvas
+            ctx.drawImage(webcam, 0, 0);
+            
+            // Convert to blob and send for detection
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('file', blob, 'webcam_frame.jpg');
+                
+                try {
+                    const response = await fetch('/api/predict', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok && result.confidence >= parseFloat(thresholdSlider.value)) {
+                        addDetectionResult(result);
+                    }
+                } catch (error) {
+                    console.error('Detection error:', error);
+                }
+            }, 'image/jpeg', 0.8);
+        }
+
+        function addDetectionResult(result) {
+            detectionCount++;
+            const timestamp = new Date().toLocaleTimeString();
+            const hasMask = result.prediction.toLowerCase().includes('mask');
+            
+            const detectionItem = document.createElement('div');
+            detectionItem.className = `detection-item ${hasMask ? 'mask' : 'no-mask'}`;
+            detectionItem.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${result.prediction}</strong>
+                        <br>
+                        <small class="text-muted">${timestamp}</small>
+                    </div>
+                    <div class="text-end">
+                        <div class="h5 mb-0">${Math.round(result.confidence * 100)}%</div>
+                        <small class="text-muted">confidence</small>
+                    </div>
+                </div>
+            `;
+            
+            detectionList.insertBefore(detectionItem, detectionList.firstChild);
+            
+            // Keep only last 10 results
+            while (detectionList.children.length > 10) {
+                detectionList.removeChild(detectionList.lastChild);
+            }
+        }
+
+        async function captureFrame() {
+            if (!webcam.videoWidth || !webcam.videoHeight) return;
+            
+            canvas.width = webcam.videoWidth;
+            canvas.height = webcam.videoHeight;
+            ctx.drawImage(webcam, 0, 0);
+            
+            // Convert to blob and create download link
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `webcam_capture_${new Date().getTime()}.jpg`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 'image/jpeg', 0.9);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus('Inactive', 'inactive');
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>

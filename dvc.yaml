@@ -1,0 +1,67 @@
+# DVC Pipeline for Face Mask Detection MLOps
+
+stages:
+  data_preprocessing:
+    cmd: python src/data_preprocessing.py
+    deps:
+      - src/data_preprocessing.py
+      - data/raw
+      - config/config.yaml
+    outs:
+      - data/processed
+    metrics:
+      - data/processed/data_stats.json
+    
+  model_training:
+    cmd: python src/model_training.py
+    deps:
+      - src/model_training.py
+      - data/processed
+      - config/config.yaml
+    outs:
+      - models
+    metrics:
+      - models/metrics.json
+    plots:
+      - models/training_history.json
+      - models/confusion_matrix.json
+      
+  model_evaluation:
+    cmd: python src/predict.py --evaluate
+    deps:
+      - src/predict.py
+      - models
+      - data/processed
+    metrics:
+      - models/evaluation_metrics.json
+    plots:
+      - models/evaluation_plots.json
+
+plots:
+  - models/training_history.json:
+      x: epoch
+      y:
+        - accuracy
+        - val_accuracy
+      title: "Training History - Accuracy"
+      
+  - models/training_history.json:
+      x: epoch  
+      y:
+        - loss
+        - val_loss
+      title: "Training History - Loss"
+      
+  - models/confusion_matrix.json:
+      template: confusion
+      x: actual
+      y: predicted
+      title: "Confusion Matrix"
+
+params:
+  - config/config.yaml:
+      - data.batch_size
+      - data.image_size
+      - model.learning_rate
+      - model.dropout_rate
+      - training.epochs

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Mask Detection - MLOps Pipeline</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+        }
+        .hero-section {
+            padding: 80px 0;
+            text-align: center;
+            color: white;
+        }
+        .feature-box {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-transparent">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-shield-virus"></i> Face Mask Detection
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                <a class="nav-link" href="{{ url_for('predict') }}">Upload Image</a>
+                <a class="nav-link" href="{{ url_for('webcam') }}">Webcam</a>
+                <a class="nav-link" href="{{ url_for('health') }}">Health</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-section">
+        <div class="container">
+            <h1 class="display-4 fw-bold">
+                <i class="fas fa-shield-virus"></i> Face Mask Detection
+            </h1>
+            <p class="lead">AI-Powered MLOps Pipeline for Real-time Face Mask Detection</p>
+            <p class="mb-4">Built with TensorFlow, MLflow, and modern DevOps practices</p>
+            
+            <div class="row justify-content-center">
+                <div class="col-md-4">
+                    <a href="{{ url_for('predict') }}" class="btn btn-primary btn-lg mb-3 w-100">
+                        <i class="fas fa-upload"></i> Upload Image
+                    </a>
+                </div>
+                <div class="col-md-4">
+                    <a href="{{ url_for('webcam') }}" class="btn btn-outline-light btn-lg mb-3 w-100">
+                        <i class="fas fa-video"></i> Live Webcam
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="feature-box text-center text-white">
+                    <i class="fas fa-brain fa-3x mb-3"></i>
+                    <h4>AI-Powered Detection</h4>
+                    <p>Advanced MobileNetV2 architecture trained on thousands of images for accurate mask detection.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-box text-center text-white">
+                    <i class="fas fa-chart-line fa-3x mb-3"></i>
+                    <h4>MLOps Pipeline</h4>
+                    <p>Complete MLOps implementation with experiment tracking, model versioning, and continuous deployment.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-box text-center text-white">
+                    <i class="fas fa-video fa-3x mb-3"></i>
+                    <h4>Real-time Processing</h4>
+                    <p>Fast inference with real-time webcam detection and batch processing capabilities.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="feature-box text-white">
+                    <h5><i class="fas fa-cogs"></i> Technologies Used</h5>
+                    <ul>
+                        <li><strong>TensorFlow/Keras:</strong> Deep learning framework</li>
+                        <li><strong>MLflow:</strong> Experiment tracking and model registry</li>
+                        <li><strong>DVC:</strong> Data and model versioning</li>
+                        <li><strong>Docker:</strong> Containerization and deployment</li>
+                        <li><strong>GitHub Actions:</strong> CI/CD pipeline</li>
+                        <li><strong>Flask:</strong> Web application framework</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="feature-box text-white">
+                    <h5><i class="fas fa-check-circle"></i> Key Features</h5>
+                    <ul>
+                        <li>High accuracy face mask detection</li>
+                        <li>Real-time webcam processing</li>
+                        <li>Batch image processing</li>
+                        <li>Model performance monitoring</li>
+                        <li>Data drift detection</li>
+                        <li>Automated testing and deployment</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center text-white mt-5 py-4">
+        <div class="container">
+            <p>&copy; 2025 Face Mask Detection MLOps Pipeline. Built with ❤️ for safety.</p>
+            <p>
+                <a href="{{ url_for('health') }}" class="text-white me-3">
+                    <i class="fas fa-heartbeat"></i> System Health
+                </a>
+                <a href="{{ url_for('metrics') }}" class="text-white">
+                    <i class="fas fa-chart-bar"></i> Metrics
+                </a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
