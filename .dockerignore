@@ -1,0 +1,86 @@
+# Dockerfile
+Dockerfile*
+.dockerignore
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual environments
+venv/
+env/
+.env
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Test files
+tests/
+*_test.py
+test_*.py
+
+# Development dependencies
+requirements-dev.txt
+
+# MLflow runs (for production)
+mlruns/
+mlflow.db
+
+# Local development data
+data/raw/
+notebooks/development/
+
+# IDE settings
+.editorconfig
+.flake8
+.pylintrc
+mypy.ini
+setup.cfg
+tox.ini
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+
+# Security sensitive files
+.env
+.env.local
+.env.production
+secrets/
+
+# Jupyter notebooks for development
+*.ipynb
+
+# Sample/demo files
+examples/
+samples/
+demo/
