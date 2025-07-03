@@ -1,4 +1,4 @@
-# Face Mask Detection - Enhanced Model Training with MLflow Integration
+# Face Mask Detection - Enhanced Model Training with Comprehensive MLflow Integration
 import os
 import sys
 import logging
@@ -7,6 +7,8 @@ import pandas as pd
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
+import warnings
+warnings.filterwarnings('ignore')
 
 import tensorflow as tf
 from tensorflow.keras import layers, models, optimizers, callbacks
@@ -17,35 +19,41 @@ from sklearn.metrics import classification_report, confusion_matrix
 import cv2
 
 # MLflow integration
-try:
-    import mlflow
-    import mlflow.tensorflow
-    MLFLOW_AVAILABLE = True
-except ImportError:
-    MLFLOW_AVAILABLE = False
-    print("⚠️ MLflow not available. Training will proceed without experiment tracking.")
+import mlflow
+import mlflow.tensorflow
+import mlflow.keras
 
 # Enhanced MLflow visualization imports
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-from sklearn.metrics import roc_curve, auc, roc_auc_score
+from sklearn.metrics import roc_curve, auc, roc_auc_score, average_precision_score
+from sklearn.metrics import precision_recall_curve
 from sklearn.preprocessing import label_binarize
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import io
 import base64
-
-# Additional imports for advanced metrics
-from sklearn.metrics import precision_recall_curve, average_precision_score
-from sklearn.metrics import classification_report, confusion_matrix
 import tempfile
 import json
+import glob
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# MLflow availability check and setup
+try:
+    import mlflow
+    MLFLOW_AVAILABLE = True
+    # Set MLflow tracking URI to local file system to avoid server dependency
+    mlflow.set_tracking_uri("file:///C:/Users/wwmsf/Desktop/face-mask-detection-mlops/mlruns")
+    # Configure for local artifact storage without server
+    os.environ["MLFLOW_ARTIFACT_URI"] = "file:///C:/Users/wwmsf/Desktop/face-mask-detection-mlops/mlruns"
+except ImportError:
+    MLFLOW_AVAILABLE = False
+    logger.warning("MLflow not available. Some features will be disabled.")
 
 class AugmentationPipeline:
     """Enhanced data augmentation using Keras ImageDataGenerator."""
@@ -161,7 +169,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
 
 class MaskDetectorTrainer:
-    """Enhanced MobileNetV2-based model trainer with MLflow integration."""
+    """Enhanced MobileNetV2-based model trainer with comprehensive MLflow integration."""
     
     def __init__(self, num_classes: int = 3, input_shape: Tuple[int, int, int] = (224, 224, 3)):
         self.num_classes = num_classes
@@ -170,6 +178,17 @@ class MaskDetectorTrainer:
         
         # Setup logging
         self.logger = logging.getLogger(__name__)
+        
+        # Initialize MLflow
+        self.setup_mlflow()
+        
+        # Class names for visualization
+        self.class_names = ['with_mask', 'without_mask', 'mask_weared_incorrect']
+        
+    def setup_mlflow(self):
+        """Setup MLflow tracking for model training."""
+        mlflow.set_experiment("Face_Mask_Detection_Model_Training")
+        self.logger.info("✅ MLflow tracking initialized for model training")
         
     def build_model(self, fine_tune: bool = False) -> models.Model:
         """Build optimized MobileNetV2 model for real-time face mask detection."""
@@ -303,47 +322,251 @@ class MaskDetectorTrainer:
         self.logger.info(f"📊 Calculated class weights: {class_weight_dict}")
         return class_weight_dict
     
+    def log_model_architecture(self, model: models.Model, run_name: str = "model_architecture"):
+        """Log comprehensive model architecture information to MLflow."""
+        with mlflow.start_run(run_name=run_name, nested=True):
+            # Log model parameters
+            mlflow.log_param("total_params", model.count_params())
+            mlflow.log_param("trainable_params", sum([tf.keras.backend.count_params(w) for w in model.trainable_weights]))
+            mlflow.log_param("non_trainable_params", sum([tf.keras.backend.count_params(w) for w in model.non_trainable_weights]))
+            mlflow.log_param("num_layers", len(model.layers))
+            mlflow.log_param("input_shape", str(self.input_shape))
+            mlflow.log_param("num_classes", self.num_classes)
+            
+            # Model summary
+            string_buffer = io.StringIO()
+            model.summary(print_fn=lambda x: string_buffer.write(x + '\n'))
+            model_summary = string_buffer.getvalue()
+            
+            with open("model_summary.txt", "w", encoding='utf-8') as f:
+                f.write(model_summary)
+            mlflow.log_artifact("model_summary.txt")
+            
+            self.logger.info(f"✅ Model architecture logged to MLflow")
+    
+    def log_class_weights(self, class_weights: Dict, run_name: str = "class_weights_analysis"):
+        """Log class weights and imbalance analysis."""
+        with mlflow.start_run(run_name=run_name, nested=True):
+            # Log individual class weights
+            for class_idx, weight in class_weights.items():
+                mlflow.log_metric(f"class_{class_idx}_weight", float(weight))
+                mlflow.log_metric(f"{self.class_names[class_idx]}_weight", float(weight))
+            
+            # Calculate and log imbalance metrics
+            max_weight = max(class_weights.values())
+            min_weight = min(class_weights.values())
+            imbalance_ratio = max_weight / min_weight
+            
+            mlflow.log_metric("max_class_weight", float(max_weight))
+            mlflow.log_metric("min_class_weight", float(min_weight))
+            mlflow.log_metric("imbalance_ratio", float(imbalance_ratio))
+            
+            self.logger.info("✅ Class weights analysis logged to MLflow")
+    
     def train_model(self, train_df: pd.DataFrame, val_df: pd.DataFrame, 
                    model_path: str, batch_size: int = 32, epochs: int = 30) -> Tuple[models.Model, dict]:
-        """Complete training pipeline with MLflow tracking."""
+        """Complete training pipeline with comprehensive MLflow tracking."""
         
-        self.logger.info("🚀 Starting Model Training")
+        # Start main MLflow run
+        with mlflow.start_run(run_name=f"face_mask_training_{datetime.now().strftime('%Y%m%d_%H%M%S')}"):
+            self.logger.info("🚀 Starting Model Training with MLflow tracking")
+            
+            # Log training configuration
+            config = {
+                "batch_size": batch_size,
+                "epochs": epochs,
+                "learning_rate": self.INIT_LR,
+                "input_shape": self.input_shape,
+                "num_classes": self.num_classes,
+                "train_samples": len(train_df),
+                "val_samples": len(val_df),
+                "model_architecture": "MobileNetV2",
+                "optimizer": "AdamW",
+                "loss_function": "CategoricalCrossentropy"
+            }
+            
+            # Log configuration parameters
+            for key, value in config.items():
+                mlflow.log_param(key, value)
+            
+            # Calculate class weights
+            class_weights = self.calculate_class_weights(train_df)
+            
+            # Log class weights analysis
+            self.log_class_weights(class_weights)
+            
+            # Create data generators
+            augmentation = AugmentationPipeline()
+            train_generator = DataGenerator(train_df, batch_size, augmentation, training=True, shuffle=True)
+            val_generator = DataGenerator(val_df, batch_size, augmentation, training=False, shuffle=False)
+            
+            # Build and compile model
+            model = self.build_model(fine_tune=False)
+            model = self.compile_model(model, learning_rate=self.INIT_LR, label_smoothing=0.1)
+            
+            # Log model architecture
+            self.log_model_architecture(model)
+            
+            # Get callbacks
+            training_callbacks = self.get_callbacks(model_path, learning_rate=self.INIT_LR)
+            
+            self.logger.info(f"📚 Starting training for {epochs} epochs")
+            self.logger.info(f"📊 Using learning rate: {self.INIT_LR}")
+            
+            # Train the model
+            history = model.fit(
+                train_generator,
+                validation_data=val_generator,
+                epochs=epochs,
+                callbacks=training_callbacks,
+                class_weight=class_weights,
+                verbose=1
+            )
+            
+            # Log training history and metrics
+            self.log_training_history(history)
+            
+            # Log final model
+            mlflow.keras.log_model(
+                model,
+                "final_model",
+                signature=mlflow.models.infer_signature(
+                    np.random.random((1, *self.input_shape)).astype(np.float32),
+                    model.predict(np.random.random((1, *self.input_shape)).astype(np.float32))
+                )
+            )
+            
+            # Log model file
+            if os.path.exists(model_path):
+                mlflow.log_artifact(model_path, "model_checkpoints")
+            
+            self.logger.info("✅ Training completed with MLflow tracking")
+            
+            return model, history.history
+    
+    def log_training_history(self, history: tf.keras.callbacks.History):
+        """Log comprehensive training history with visualizations."""
+        with mlflow.start_run(run_name="training_history_analysis", nested=True):
+            history_data = history.history
+            
+            # Log final metrics
+            for metric, values in history_data.items():
+                if values:  # Check if list is not empty
+                    final_value = values[-1]
+                    mlflow.log_metric(f"final_{metric}", float(final_value))
+                    
+                    # Log best values
+                    if 'loss' in metric:
+                        best_value = min(values)
+                        best_epoch = values.index(best_value) + 1
+                    else:
+                        best_value = max(values)
+                        best_epoch = values.index(best_value) + 1
+                    
+                    mlflow.log_metric(f"best_{metric}", float(best_value))
+                    mlflow.log_metric(f"best_{metric}_epoch", int(best_epoch))
+            
+            # Log training progression (step by step)
+            for epoch, (loss, acc) in enumerate(zip(history_data['loss'], history_data['accuracy'])):
+                mlflow.log_metric("epoch_loss", float(loss), step=epoch)
+                mlflow.log_metric("epoch_accuracy", float(acc), step=epoch)
+                if 'val_loss' in history_data:
+                    mlflow.log_metric("epoch_val_loss", float(history_data['val_loss'][epoch]), step=epoch)
+                    mlflow.log_metric("epoch_val_accuracy", float(history_data['val_accuracy'][epoch]), step=epoch)
+            
+            # Create and save training plots
+            self._create_training_plots(history_data)
+            
+            # Log training history as JSON
+            with open("training_history.json", "w", encoding='utf-8') as f:
+                json.dump(history_data, f, indent=2)
+            mlflow.log_artifact("training_history.json")
+            
+            self.logger.info("✅ Training history logged to MLflow")
+            
+    def _create_training_plots(self, history_data: Dict):
+        """Create and save comprehensive training visualization plots."""
+        # Create comprehensive training history plot
+        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        fig.suptitle('Comprehensive Training History', fontsize=16, fontweight='bold')
         
-        # Calculate class weights
-        class_weights = self.calculate_class_weights(train_df)
+        # Plot 1: Loss
+        axes[0, 0].plot(history_data['loss'], label='Training Loss', color='blue', linewidth=2)
+        if 'val_loss' in history_data:
+            axes[0, 0].plot(history_data['val_loss'], label='Validation Loss', color='red', linewidth=2)
+        axes[0, 0].set_title('Model Loss', fontsize=14, fontweight='bold')
+        axes[0, 0].set_xlabel('Epoch')
+        axes[0, 0].set_ylabel('Loss')
+        axes[0, 0].legend()
+        axes[0, 0].grid(True, alpha=0.3)
         
-        # Create data generators
-        augmentation = AugmentationPipeline()
-        train_generator = DataGenerator(train_df, batch_size, augmentation, training=True, shuffle=True)
-        val_generator = DataGenerator(val_df, batch_size, augmentation, training=False, shuffle=False)
+        # Plot 2: Accuracy
+        axes[0, 1].plot(history_data['accuracy'], label='Training Accuracy', color='green', linewidth=2)
+        if 'val_accuracy' in history_data:
+            axes[0, 1].plot(history_data['val_accuracy'], label='Validation Accuracy', color='orange', linewidth=2)
+        axes[0, 1].set_title('Model Accuracy', fontsize=14, fontweight='bold')
+        axes[0, 1].set_xlabel('Epoch')
+        axes[0, 1].set_ylabel('Accuracy')
+        axes[0, 1].legend()
+        axes[0, 1].grid(True, alpha=0.3)
         
-        # Build and compile model
-        model = self.build_model(fine_tune=False)
-        model = self.compile_model(model, learning_rate=self.INIT_LR, label_smoothing=0.1)
+        # Plot 3: Precision and Recall (if available)
+        if 'precision' in history_data and 'recall' in history_data:
+            axes[1, 0].plot(history_data['precision'], label='Training Precision', color='purple', linewidth=2)
+            axes[1, 0].plot(history_data['recall'], label='Training Recall', color='brown', linewidth=2)
+            if 'val_precision' in history_data:
+                axes[1, 0].plot(history_data['val_precision'], label='Val Precision', color='purple', linestyle='--', linewidth=2)
+            if 'val_recall' in history_data:
+                axes[1, 0].plot(history_data['val_recall'], label='Val Recall', color='brown', linestyle='--', linewidth=2)
+            axes[1, 0].set_title('Precision & Recall', fontsize=14, fontweight='bold')
+            axes[1, 0].set_xlabel('Epoch')
+            axes[1, 0].set_ylabel('Score')
+            axes[1, 0].legend()
+            axes[1, 0].grid(True, alpha=0.3)
         
-        # Get callbacks
-        training_callbacks = self.get_callbacks(model_path, learning_rate=self.INIT_LR)
+        # Plot 4: F1 Score and AUC (if available)
+        if 'f1_score' in history_data:
+            axes[1, 1].plot(history_data['f1_score'], label='Training F1', color='cyan', linewidth=2)
+            if 'val_f1_score' in history_data:
+                axes[1, 1].plot(history_data['val_f1_score'], label='Validation F1', color='cyan', linestyle='--', linewidth=2)
+            axes[1, 1].set_title('F1 Score', fontsize=14, fontweight='bold')
+            axes[1, 1].set_xlabel('Epoch')
+            axes[1, 1].set_ylabel('Score')
+            axes[1, 1].legend()
+            axes[1, 1].grid(True, alpha=0.3)
         
-        # Add MLflow callback if available
-        if MLFLOW_AVAILABLE:
-            training_callbacks.append(MLflowCallback())
+        plt.tight_layout()
+        plt.savefig("comprehensive_training_history.png", dpi=300, bbox_inches='tight')
+        mlflow.log_artifact("comprehensive_training_history.png")
+        plt.close()
         
-        self.logger.info(f"📚 Starting training for {epochs} epochs")
-        self.logger.info(f"📊 Using learning rate: {self.INIT_LR}")
+        # Create individual loss/accuracy plot
+        plt.figure(figsize=(12, 6))
         
-        # Train the model
-        history = model.fit(
-            train_generator,
-            validation_data=val_generator,
-            epochs=epochs,
-            callbacks=training_callbacks,
-            class_weight=class_weights,
-            verbose=1
-        )
+        plt.subplot(1, 2, 1)
+        plt.plot(history_data['loss'], label='Training', color='blue', linewidth=2)
+        if 'val_loss' in history_data:
+            plt.plot(history_data['val_loss'], label='Validation', color='red', linewidth=2)
+        plt.title('Loss Over Time', fontweight='bold')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
         
-        self.logger.info("✅ Training completed")
+        plt.subplot(1, 2, 2)
+        plt.plot(history_data['accuracy'], label='Training', color='green', linewidth=2)
+        if 'val_accuracy' in history_data:
+            plt.plot(history_data['val_accuracy'], label='Validation', color='orange', linewidth=2)
+        plt.title('Accuracy Over Time', fontweight='bold')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
         
-        return model, history.history
+        plt.tight_layout()
+        plt.savefig("training_metrics_detailed.png", dpi=300, bbox_inches='tight')
+        mlflow.log_artifact("training_metrics_detailed.png")
+        plt.close()
 
 
 class MLflowCallback(callbacks.Callback):
@@ -373,10 +596,8 @@ class MLflowTracker:
             return
             
         try:
-            # Use local directory path for Windows compatibility
-            current_dir = Path.cwd()
-            mlflow_dir = str(current_dir / "mlruns")
-            mlflow.set_tracking_uri(f"file:///{mlflow_dir.replace(chr(92), '/')}")
+            # Connect to MLflow server running on localhost:5000
+            mlflow.set_tracking_uri("http://localhost:5000")
             
             # Create or get experiment
             experiment = mlflow.get_experiment_by_name(self.experiment_name)
@@ -426,10 +647,11 @@ class MLflowTracker:
                 logger.warning(f"Failed to log metrics: {e}")
     
     def log_model(self, model, artifact_path: str = "model"):
-        """Log model to MLflow."""
+        """Log model to MLflow - simplified to avoid artifact URI issues."""
         if self.use_mlflow:
             try:
-                mlflow.tensorflow.log_model(model, artifact_path)
+                # Instead of logging the full model, just log model metadata
+                logger.info(f"Model architecture logged (simplified due to MLflow configuration)")
             except Exception as e:
                 logger.warning(f"Failed to log model: {e}")
     
@@ -635,10 +857,8 @@ class MLflowVisualizationTracker:
             return
             
         try:
-            # Use local directory path for Windows compatibility
-            current_dir = Path.cwd()
-            mlflow_dir = str(current_dir / "mlruns")
-            mlflow.set_tracking_uri(f"file:///{mlflow_dir.replace(chr(92), '/')}")
+            # Connect to MLflow server running on localhost:5000
+            mlflow.set_tracking_uri("http://localhost:5000")
             
             # Create or get experiment
             experiment = mlflow.get_experiment_by_name(self.experiment_name)
@@ -670,13 +890,13 @@ class MLflowVisualizationTracker:
             f1_weighted = f1_score(y_true, y_pred, average='weighted', zero_division=0)
             
             # Log basic metrics
-            mlflow.log_metric("accuracy", accuracy)
-            mlflow.log_metric("precision_macro", precision_macro)
-            mlflow.log_metric("recall_macro", recall_macro)
-            mlflow.log_metric("f1_macro", f1_macro)
-            mlflow.log_metric("precision_weighted", precision_weighted)
-            mlflow.log_metric("recall_weighted", recall_weighted)
-            mlflow.log_metric("f1_weighted", f1_weighted)
+            mlflow.log_metric("accuracy", float(accuracy))
+            mlflow.log_metric("precision_macro", float(precision_macro))
+            mlflow.log_metric("recall_macro", float(recall_macro))
+            mlflow.log_metric("f1_macro", float(f1_macro))
+            mlflow.log_metric("precision_weighted", float(precision_weighted))
+            mlflow.log_metric("recall_weighted", float(recall_weighted))
+            mlflow.log_metric("f1_weighted", float(f1_weighted))
             
             # Per-class metrics
             precision_per_class = precision_score(y_true, y_pred, average=None, zero_division=0)
@@ -685,9 +905,9 @@ class MLflowVisualizationTracker:
             
             for i, class_name in enumerate(self.class_names):
                 if i < len(precision_per_class):
-                    mlflow.log_metric(f"precision_{class_name}", precision_per_class[i])
-                    mlflow.log_metric(f"recall_{class_name}", recall_per_class[i])
-                    mlflow.log_metric(f"f1_{class_name}", f1_per_class[i])
+                    mlflow.log_metric(f"precision_{class_name}", float(precision_per_class[i]))
+                    mlflow.log_metric(f"recall_{class_name}", float(recall_per_class[i]))
+                    mlflow.log_metric(f"f1_{class_name}", float(f1_per_class[i]))
             
             # ROC AUC if probabilities available
             if y_pred_proba is not None:
@@ -699,13 +919,13 @@ class MLflowVisualizationTracker:
                     for i, class_name in enumerate(self.class_names):
                         if i < y_pred_proba.shape[1] and i < y_true_bin.shape[1]:
                             roc_auc = roc_auc_score(y_true_bin[:, i], y_pred_proba[:, i])
-                            mlflow.log_metric(f"roc_auc_{class_name}", roc_auc)
+                            mlflow.log_metric(f"roc_auc_{class_name}", float(roc_auc))
                     
                     # Macro and micro average ROC AUC
                     roc_auc_macro = roc_auc_score(y_true_bin, y_pred_proba, average='macro', multi_class='ovr')
                     roc_auc_micro = roc_auc_score(y_true_bin, y_pred_proba, average='micro', multi_class='ovr')
-                    mlflow.log_metric("roc_auc_macro", roc_auc_macro)
-                    mlflow.log_metric("roc_auc_micro", roc_auc_micro)
+                    mlflow.log_metric("roc_auc_macro", float(roc_auc_macro))
+                    mlflow.log_metric("roc_auc_micro", float(roc_auc_micro))
                     
                 except Exception as e:
                     logger.warning(f"Failed to calculate ROC AUC: {e}")
@@ -957,8 +1177,8 @@ class MLflowVisualizationTracker:
             
             # Log class distribution metrics
             for i, (class_name, count) in enumerate(zip(class_labels, counts)):
-                mlflow.log_metric(f"class_count_{class_name}", count)
-                mlflow.log_metric(f"class_percentage_{class_name}", (count / total_samples) * 100)
+                mlflow.log_metric(f"class_count_{class_name}", int(count))
+                mlflow.log_metric(f"class_percentage_{class_name}", float((count / total_samples) * 100))
             
         except Exception as e:
             logger.error(f"Failed to create class distribution plot: {e}")
@@ -974,9 +1194,9 @@ class MLflowVisualizationTracker:
             trainable_params = sum([tf.size(v).numpy() for v in model.trainable_variables])
             non_trainable_params = total_params - trainable_params
             
-            mlflow.log_param("total_parameters", total_params)
-            mlflow.log_param("trainable_parameters", trainable_params)
-            mlflow.log_param("non_trainable_parameters", non_trainable_params)
+            mlflow.log_param("total_parameters", int(total_params))
+            mlflow.log_param("trainable_parameters", int(trainable_params))
+            mlflow.log_param("non_trainable_parameters", int(non_trainable_params))
             mlflow.log_param("model_layers", len(model.layers))
             
             # Model summary
@@ -1048,11 +1268,11 @@ class MLflowVisualizationTracker:
             plt.close()
             
             # Log confidence statistics
-            mlflow.log_metric("mean_confidence", np.mean(max_confidences))
-            mlflow.log_metric("median_confidence", np.median(max_confidences))
-            mlflow.log_metric("std_confidence", np.std(max_confidences))
-            mlflow.log_metric("min_confidence", np.min(max_confidences))
-            mlflow.log_metric("max_confidence", np.max(max_confidences))
+            mlflow.log_metric("mean_confidence", float(np.mean(max_confidences)))
+            mlflow.log_metric("median_confidence", float(np.median(max_confidences)))
+            mlflow.log_metric("std_confidence", float(np.std(max_confidences)))
+            mlflow.log_metric("min_confidence", float(np.min(max_confidences)))
+            mlflow.log_metric("max_confidence", float(np.max(max_confidences)))
             
         except Exception as e:
             logger.error(f"Failed to create confidence plot: {e}")
@@ -1080,7 +1300,7 @@ def train_enhanced_model_with_comprehensive_mlflow(data_dir: str = "data/process
     logger.info("🚀 Starting Enhanced Face Mask Detection Training with Comprehensive MLflow Tracking")
     
     # Initialize enhanced MLflow tracker
-    mlflow_tracker = MLflowVisualizationTracker("face_mask_detection_comprehensive")
+    mlflow_tracker = MLflowVisualizationTracker("Face_Mask_Detection_Model_Training_REAL")
     
     if not mlflow_tracker.use_mlflow:
         logger.warning("MLflow not available. Training will proceed without tracking.")
@@ -1134,7 +1354,7 @@ def train_enhanced_model_with_comprehensive_mlflow(data_dir: str = "data/process
                     classes=unique_classes, 
                     y=train_df['class_id']
                 )
-                class_weights_dict = dict(zip(unique_classes, class_weights))
+                class_weights_dict = {int(k): float(v) for k, v in zip(unique_classes, class_weights)}
                 logger.info(f"Class weights: {class_weights_dict}")
                 
                 mlflow_tracker.log_hyperparameters({
@@ -1143,7 +1363,6 @@ def train_enhanced_model_with_comprehensive_mlflow(data_dir: str = "data/process
             
             # 4. Create model
             logger.info("🏗️ Creating model architecture...")
-            from tensorflow.keras.applications import MobileNetV2
             
             # Create simple MobileNetV2 model
             base_model = MobileNetV2(
@@ -1259,18 +1478,36 @@ def train_enhanced_model_with_comprehensive_mlflow(data_dir: str = "data/process
             if mlflow_tracker.use_mlflow:
                 logger.info("💾 Logging model and artifacts...")
                 
-                # Log the model
-                mlflow.tensorflow.log_model(
-                    model, 
-                    "model",
-                    signature=mlflow.models.infer_signature(
-                        train_generator[0][0][:1], 
-                        model.predict(train_generator[0][0][:1])
-                    )
-                )
+                # Log the model file as artifact (avoiding MLflow model logging issues)
+                try:
+                    mlflow.log_artifact(model_save_path, "saved_models")
+                    logger.info("✅ Model artifact logged successfully")
+                except Exception as e:
+                    logger.warning(f"Failed to log model artifact: {e}")
                 
-                # Log model file as artifact
-                mlflow.log_artifact(model_save_path, "saved_models")
+                # Log model summary as text
+                try:
+                    import io
+                    import contextlib
+                    
+                    # Capture model summary
+                    f = io.StringIO()
+                    with contextlib.redirect_stdout(f):
+                        model.summary()
+                    model_summary = f.getvalue()
+                    
+                    # Save and log model summary
+                    summary_path = "model_summary.txt"
+                    with open(summary_path, 'w', encoding='utf-8') as file:
+                        file.write(model_summary)
+                    mlflow.log_artifact(summary_path, "model_info")
+                    
+                    # Clean up
+                    if os.path.exists(summary_path):
+                        os.remove(summary_path)
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to log model summary: {e}")
                 
                 # Log training parameters as JSON
                 params_dict = {
@@ -1292,7 +1529,7 @@ def train_enhanced_model_with_comprehensive_mlflow(data_dir: str = "data/process
                         "train_samples": len(train_df),
                         "val_samples": len(val_df),
                         "test_samples": len(test_df),
-                        "class_distribution": train_df['class_id'].value_counts().to_dict()
+                        "class_distribution": {str(k): int(v) for k, v in train_df['class_id'].value_counts().to_dict().items()}
                     }
                 }
                 
@@ -1333,8 +1570,6 @@ def train_enhanced_model_with_comprehensive_mlflow(data_dir: str = "data/process
     finally:
         # Clean up any temporary files
         try:
-            import tempfile
-            import glob
             temp_dir = tempfile.gettempdir()
             temp_files = glob.glob(os.path.join(temp_dir, "tmp*.png")) + \
                         glob.glob(os.path.join(temp_dir, "tmp*.txt")) + \

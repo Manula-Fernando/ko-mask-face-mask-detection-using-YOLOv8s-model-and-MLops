@@ -32,7 +32,7 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Model configuration
 MODEL_PATH = "models/best_mask_detector_imbalance_optimized.h5"
-BACKUP_MODEL_PATH = "models/best_mask_detector.h5"
+BACKUP_MODEL_PATH = "models/best_mask_detector_enhanced_mlflow.h5"
 CLASSES = ['with_mask', 'without_mask', 'mask_weared_incorrect']
 
 # Global model variable

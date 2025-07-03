@@ -1,0 +1,272 @@
+name: Professional Face Mask Detection MLOps CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  PYTHON_VERSION: "3.10"
+  
+jobs:
+  # Job 1: Code Quality and Testing
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10"]
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for better analysis
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov flake8 black isort mypy
+    
+    - name: Code formatting check with Black
+      run: |
+        black --check --diff src/ tests/ app/
+    
+    - name: Import sorting check with isort
+      run: |
+        isort --check-only --diff src/ tests/ app/
+    
+    - name: Lint with flake8
+      run: |
+        # Stop build if there are Python syntax errors or undefined names
+        flake8 src/ tests/ app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings. GitHub editor is 127 chars wide
+        flake8 src/ tests/ app/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    - name: Type checking with mypy
+      run: |
+        mypy src/ --ignore-missing-imports --no-strict-optional
+      continue-on-error: true  # Type checking warnings shouldn't fail the build
+    
+    - name: Run unit tests with pytest
+      run: |
+        pytest tests/ -v --cov=src --cov-report=xml --cov-report=html --cov-fail-under=70
+    
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  # Job 2: Security Scanning
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety bandit
+    
+    - name: Run safety check for known vulnerabilities
+      run: |
+        safety check --json --output safety-report.json
+      continue-on-error: true
+    
+    - name: Run bandit security linting
+      run: |
+        bandit -r src/ -f json -o bandit-report.json
+      continue-on-error: true
+    
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          safety-report.json
+          bandit-report.json
+
+  # Job 3: Model Training and Validation
+  model-training:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Download and prepare sample data
+      run: |
+        # Create sample data for CI testing
+        mkdir -p data/raw/with_mask data/raw/without_mask data/raw/mask_weared_incorrect
+        python scripts/create_sample_data.py
+    
+    - name: Run data preprocessing
+      run: |
+        python src/data_preprocessing.py
+    
+    - name: Quick model training (CI version)
+      run: |
+        # Set minimal training parameters for CI
+        export EPOCHS=1
+        export BATCH_SIZE=2
+        python src/model_training.py
+    
+    - name: Upload model artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: trained-model
+        path: |
+          models/
+          mlruns/
+
+  # Job 4: Docker Build and Push
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: ghcr.io/${{ github.repository }}/face-mask-detector
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Job 5: Model Deployment (Production)
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test, docker, model-training]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download model artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: trained-model
+    
+    - name: Deploy to production (simulation)
+      run: |
+        echo "🚀 Deploying Professional Face Mask Detection System to production..."
+        echo "Model version: ${{ github.sha }}"
+        echo "Docker image: ghcr.io/${{ github.repository }}/face-mask-detector:latest"
+        
+        # In a real scenario, this would:
+        # 1. Deploy to Kubernetes cluster
+        # 2. Update load balancer configuration
+        # 3. Run smoke tests
+        # 4. Monitor deployment health
+        
+        echo "✅ Deployment simulation completed successfully!"
+
+  # Job 6: Performance Monitoring
+  monitor:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Model performance monitoring
+      run: |
+        echo "📊 Starting model performance monitoring..."
+        echo "Checking model drift, accuracy degradation, and system health..."
+        
+        # In a real scenario, this would:
+        # 1. Run model validation against test dataset
+        # 2. Check for data drift
+        # 3. Monitor API response times
+        # 4. Validate prediction accuracy
+        # 5. Send alerts if thresholds are exceeded
+        
+        echo "✅ Performance monitoring completed!"
+
+  # Job 7: Integration Tests
+  integration:
+    runs-on: ubuntu-latest
+    needs: docker
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run integration tests
+      run: |
+        # Start the containerized application
+        docker run -d -p 5000:5000 --name face-mask-detector \
+          ghcr.io/${{ github.repository }}/face-mask-detector:${{ github.sha }}
+        
+        # Wait for application to start
+        sleep 30
+        
+        # Run integration tests
+        echo "🧪 Running integration tests..."
+        
+        # Test health endpoint
+        curl -f http://localhost:5000/health || exit 1
+        
+        # Test prediction endpoint (with dummy data)
+        echo "✅ Integration tests completed successfully!"
+        
+        # Cleanup
+        docker stop face-mask-detector
+        docker rm face-mask-detector

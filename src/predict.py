@@ -1,4 +1,4 @@
-# Face Mask Detection - Production Prediction with Real-time Capabilities
+# Face Mask Detection - Production Prediction with Enhanced MLflow Tracking
 import os
 import cv2
 import numpy as np
@@ -7,9 +7,20 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 import logging
 from datetime import datetime
+import json
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score
+import pandas as pd
+import mlflow
+import mlflow.tensorflow
+from collections import defaultdict
+import warnings
+warnings.filterwarnings('ignore')
 
 class FaceMaskPredictor:
-    """Production face mask detection predictor with comprehensive capabilities."""
+    """Production face mask detection predictor with comprehensive MLflow tracking."""
     
     CLASSES = ['with_mask', 'without_mask', 'mask_weared_incorrect']
     
@@ -21,24 +32,191 @@ class FaceMaskPredictor:
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
         self.logger = logging.getLogger(__name__)
         
-        self.load_model()
-    
-    def load_model(self):
-        """Load the trained model with comprehensive error handling."""
-        if not os.path.exists(self.model_path):
-            self.logger.error(f"Model not found: {self.model_path}")
-            return
+        # Initialize prediction tracking
+        self.prediction_history = []
+        self.performance_metrics = {
+            'total_predictions': 0,
+            'inference_times': [],
+            'confidence_scores': [],
+            'class_predictions': defaultdict(int)
+        }
         
-        try:
-            self.model = tf.keras.models.load_model(self.model_path)
-            self.logger.info(f"✅ Model loaded successfully: {self.model_path}")
+        # Class-wise confidence tracking
+        self.class_confidence_history = {
+            'with_mask': [],
+            'without_mask': [],
+            'mask_weared_incorrect': []
+        }
+        
+        # Setup MLflow
+        self.setup_mlflow()
+        
+        # Note: Model loading is now manual - call load_model() when needed
+    
+    def setup_mlflow(self):
+        """Setup MLflow tracking for predictions."""
+        mlflow.set_experiment("Face_Mask_Detection_Predictions")
+        
+    def log_prediction_session(self, session_info: Dict, run_name: str = "prediction_session"):
+        """Log comprehensive prediction session information."""
+        with mlflow.start_run(run_name=run_name, nested=True):
+            # Log session parameters
+            for key, value in session_info.items():
+                if isinstance(value, (int, float, str, bool)):
+                    mlflow.log_param(key, value)
+                else:
+                    mlflow.log_param(key, str(value))
             
-            # Log model info
-            total_params = self.model.count_params()
-            self.logger.info(f"📊 Model parameters: {total_params:,}")
+            # Log performance metrics
+            if self.performance_metrics['total_predictions'] > 0:
+                avg_inference_time = np.mean(self.performance_metrics['inference_times'])
+                avg_confidence = np.mean(self.performance_metrics['confidence_scores'])
+                
+                mlflow.log_metric("total_predictions", self.performance_metrics['total_predictions'])
+                mlflow.log_metric("avg_inference_time_ms", avg_inference_time * 1000)
+                mlflow.log_metric("avg_confidence", avg_confidence)
+                mlflow.log_metric("min_confidence", np.min(self.performance_metrics['confidence_scores']))
+                mlflow.log_metric("max_confidence", np.max(self.performance_metrics['confidence_scores']))
+                
+                # Log class distribution
+                for class_name, count in self.performance_metrics['class_predictions'].items():
+                    mlflow.log_metric(f"predictions_{class_name}", count)
+                    mlflow.log_metric(f"predictions_{class_name}_percentage", 
+                                    (count / self.performance_metrics['total_predictions']) * 100)
+                
+                # Create and log prediction analytics
+                self._create_prediction_analytics()
+                
+            self.logger.info("✅ Prediction session logged to MLflow")
+    
+    def _create_prediction_analytics(self):
+        """Create comprehensive prediction analytics visualizations."""
+        # Confidence distribution
+        if self.performance_metrics['confidence_scores']:
+            plt.figure(figsize=(15, 10))
             
-        except Exception as e:
-            self.logger.error(f"❌ Failed to load model: {e}")
+            # Confidence histogram
+            plt.subplot(2, 3, 1)
+            plt.hist(self.performance_metrics['confidence_scores'], bins=50, alpha=0.7, 
+                    color='skyblue', edgecolor='black')
+            plt.axvline(np.mean(self.performance_metrics['confidence_scores']), 
+                       color='red', linestyle='--', 
+                       label=f'Mean: {np.mean(self.performance_metrics["confidence_scores"]):.3f}')
+            plt.xlabel('Confidence Score')
+            plt.ylabel('Frequency')
+            plt.title('Prediction Confidence Distribution')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            
+            # Inference time distribution
+            plt.subplot(2, 3, 2)
+            inference_times_ms = np.array(self.performance_metrics['inference_times']) * 1000
+            plt.hist(inference_times_ms, bins=30, alpha=0.7, color='lightgreen', edgecolor='black')
+            plt.axvline(np.mean(inference_times_ms), color='red', linestyle='--',
+                       label=f'Mean: {np.mean(inference_times_ms):.1f}ms')
+            plt.xlabel('Inference Time (ms)')
+            plt.ylabel('Frequency')
+            plt.title('Inference Time Distribution')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            
+            # Class prediction distribution
+            plt.subplot(2, 3, 3)
+            class_names = list(self.performance_metrics['class_predictions'].keys())
+            class_counts = list(self.performance_metrics['class_predictions'].values())
+            colors = ['green', 'red', 'orange'][:len(class_names)]
+            
+            plt.bar(class_names, class_counts, color=colors)
+            plt.xlabel('Predicted Class')
+            plt.ylabel('Count')
+            plt.title('Class Prediction Distribution')
+            plt.xticks(rotation=45)
+            
+            # Add count labels on bars
+            for i, count in enumerate(class_counts):
+                plt.text(i, count + 0.5, str(count), ha='center', va='bottom')
+            
+            # Confidence by prediction class
+            plt.subplot(2, 3, 4)
+            for i, (class_name, predictions) in enumerate(self.class_confidence_history.items()):
+                if predictions:
+                    plt.hist(predictions, alpha=0.6, label=class_name, bins=20, color=colors[i % len(colors)])
+            plt.xlabel('Confidence Score')
+            plt.ylabel('Frequency')
+            plt.title('Confidence Distribution by Class')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            
+            # Time series of confidence scores
+            plt.subplot(2, 3, 5)
+            plt.plot(self.performance_metrics['confidence_scores'], alpha=0.7, linewidth=1)
+            plt.xlabel('Prediction Number')
+            plt.ylabel('Confidence Score')
+            plt.title('Confidence Scores Over Time')
+            plt.grid(True, alpha=0.3)
+            
+            # Performance summary
+            plt.subplot(2, 3, 6)
+            summary_metrics = [
+                f"Total Predictions: {self.performance_metrics['total_predictions']}",
+                f"Avg Confidence: {np.mean(self.performance_metrics['confidence_scores']):.3f}",
+                f"Avg Inference Time: {np.mean(inference_times_ms):.1f}ms",
+                f"High Confidence (>0.9): {len([c for c in self.performance_metrics['confidence_scores'] if c > 0.9])}",
+                f"Low Confidence (<0.7): {len([c for c in self.performance_metrics['confidence_scores'] if c < 0.7])}"
+            ]
+            
+            plt.text(0.05, 0.95, '\n'.join(summary_metrics), transform=plt.gca().transAxes, 
+                    fontsize=12, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+            plt.axis('off')
+            plt.title('Prediction Session Summary')
+            
+            plt.tight_layout()
+            plt.savefig("prediction_analytics.png", dpi=300, bbox_inches='tight')
+            mlflow.log_artifact("prediction_analytics.png")
+            plt.close()
+        
+    def load_model(self):
+        """Load the trained model with comprehensive error handling and MLflow tracking."""
+        with mlflow.start_run(run_name="model_loading", nested=True):
+            if not os.path.exists(self.model_path):
+                self.logger.error(f"Model not found: {self.model_path}")
+                mlflow.log_metric("model_load_success", 0)
+                return
+            
+            try:
+                self.model = tf.keras.models.load_model(self.model_path)
+                self.logger.info(f"Model loaded successfully: {self.model_path}")
+                
+                # Log model info
+                total_params = self.model.count_params()
+                self.logger.info(f"Model parameters: {total_params:,}")
+                
+                # Log model metadata to MLflow
+                mlflow.log_param("model_path", self.model_path)
+                mlflow.log_param("model_name", Path(self.model_path).name)
+                mlflow.log_param("classes", self.CLASSES)
+                mlflow.log_metric("total_parameters", total_params)
+                mlflow.log_metric("model_load_success", 1)
+                
+                # Log model architecture summary
+                model_summary = []
+                self.model.summary(print_fn=lambda x: model_summary.append(x))
+                summary_text = '\n'.join(model_summary)
+                # Write to file first with proper encoding
+                with open("model_architecture.txt", 'w', encoding='utf-8') as f:
+                    f.write(summary_text)
+                mlflow.log_artifact("model_architecture.txt")
+                
+                # Log model as artifact
+                mlflow.tensorflow.log_model(self.model, "model")
+                
+            except Exception as e:
+                self.logger.error(f"Failed to load model: {e}")
+                mlflow.log_metric("model_load_success", 0)
+                # Write error to file first with proper encoding
+                with open("model_load_error.txt", 'w', encoding='utf-8') as f:
+                    f.write(str(e))
+                mlflow.log_artifact("model_load_error.txt")
     
     def preprocess_image(self, image_path: str) -> Optional[np.ndarray]:
         """Preprocess image for prediction with enhanced normalization."""
@@ -91,7 +269,9 @@ class FaceMaskPredictor:
             return None
     
     def predict(self, image_path: str) -> Dict:
-        """Make prediction on single image with comprehensive output."""
+        """Make prediction on single image with comprehensive output and MLflow tracking."""
+        start_time = datetime.now()
+        
         if self.model is None:
             return {
                 'error': 'Model not loaded',
@@ -111,8 +291,10 @@ class FaceMaskPredictor:
             }
         
         try:
-            # Make prediction
+            # Measure inference time
+            inference_start = datetime.now()
             predictions = self.model.predict(processed_image, verbose=0)[0]
+            inference_time = (datetime.now() - inference_start).total_seconds()
             
             # Get predicted class
             predicted_class_idx = np.argmax(predictions)
@@ -124,11 +306,32 @@ class FaceMaskPredictor:
                 self.CLASSES[i]: float(predictions[i]) for i in range(len(self.CLASSES))
             }
             
+            # Update performance tracking
+            self.performance_metrics['total_predictions'] += 1
+            self.performance_metrics['inference_times'].append(inference_time)
+            self.performance_metrics['confidence_scores'].append(confidence)
+            self.performance_metrics['class_predictions'][predicted_class] += 1
+            
+            # Track class-wise confidence
+            self.class_confidence_history[predicted_class].append(confidence)
+            
+            # Store prediction history
+            prediction_record = {
+                'image_path': image_path,
+                'prediction': predicted_class,
+                'confidence': confidence,
+                'inference_time': inference_time,
+                'timestamp': start_time.isoformat(),
+                'all_probabilities': all_probabilities
+            }
+            self.prediction_history.append(prediction_record)
+            
             return {
                 'prediction': predicted_class,
                 'confidence': confidence,
                 'all_probabilities': all_probabilities,
-                'timestamp': datetime.now().isoformat()
+                'inference_time_ms': inference_time * 1000,
+                'timestamp': start_time.isoformat()
             }
             
         except Exception as e:
@@ -192,6 +395,96 @@ class FaceMaskPredictor:
             }
         except Exception as e:
             return {'error': str(e)}
+
+
+    def log_analytics(self):
+        """Generate and log prediction analytics visualization."""
+        if not self.performance_metrics['confidence_scores']:
+            self.logger.warning("No prediction data available for analytics")
+            return
+            
+        # Create analytics visualization
+        plt.figure(figsize=(18, 12))
+        
+        # Confidence score distribution
+        plt.subplot(2, 3, 1)
+        plt.hist(self.performance_metrics['confidence_scores'], bins=20, alpha=0.7, color='skyblue', edgecolor='black')
+        plt.axvline(np.mean(self.performance_metrics['confidence_scores']), color='red', linestyle='--', 
+                   label=f'Mean: {np.mean(self.performance_metrics["confidence_scores"]):.3f}')
+        plt.xlabel('Confidence Score')
+        plt.ylabel('Frequency')
+        plt.title('Confidence Score Distribution')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        
+        # Inference time distribution
+        plt.subplot(2, 3, 2)
+        inference_times_ms = [t * 1000 for t in self.performance_metrics['inference_times']]
+        plt.hist(inference_times_ms, bins=20, alpha=0.7, color='lightgreen', edgecolor='black')
+        plt.axvline(np.mean(inference_times_ms), color='red', linestyle='--',
+                   label=f'Mean: {np.mean(inference_times_ms):.1f}ms')
+        plt.xlabel('Inference Time (ms)')
+        plt.ylabel('Frequency')
+        plt.title('Inference Time Distribution')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        
+        # Class prediction distribution
+        plt.subplot(2, 3, 3)
+        class_names = list(self.performance_metrics['class_predictions'].keys())
+        class_counts = list(self.performance_metrics['class_predictions'].values())
+        colors = ['green', 'red', 'orange'][:len(class_names)]
+        
+        plt.bar(class_names, class_counts, color=colors)
+        plt.xlabel('Predicted Class')
+        plt.ylabel('Count')
+        plt.title('Class Prediction Distribution')
+        plt.xticks(rotation=45)
+        
+        # Add count labels on bars
+        for i, count in enumerate(class_counts):
+            plt.text(i, count + 0.5, str(count), ha='center', va='bottom')
+        
+        # Confidence by prediction class
+        plt.subplot(2, 3, 4)
+        for i, (class_name, predictions) in enumerate(self.class_confidence_history.items()):
+            if predictions:
+                plt.hist(predictions, alpha=0.6, label=class_name, bins=20, color=colors[i % len(colors)])
+        plt.xlabel('Confidence Score')
+        plt.ylabel('Frequency')
+        plt.title('Confidence Distribution by Class')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        
+        # Time series of confidence scores
+        plt.subplot(2, 3, 5)
+        plt.plot(self.performance_metrics['confidence_scores'], alpha=0.7, linewidth=1)
+        plt.xlabel('Prediction Number')
+        plt.ylabel('Confidence Score')
+        plt.title('Confidence Scores Over Time')
+        plt.grid(True, alpha=0.3)
+        
+        # Performance summary
+        plt.subplot(2, 3, 6)
+        summary_metrics = [
+            f"Total Predictions: {self.performance_metrics['total_predictions']}",
+            f"Avg Confidence: {np.mean(self.performance_metrics['confidence_scores']):.3f}",
+            f"Avg Inference Time: {np.mean(inference_times_ms):.1f}ms",
+            f"High Confidence (>0.9): {len([c for c in self.performance_metrics['confidence_scores'] if c > 0.9])}",
+            f"Low Confidence (<0.7): {len([c for c in self.performance_metrics['confidence_scores'] if c < 0.7])}"
+        ]
+        
+        plt.text(0.05, 0.95, '\n'.join(summary_metrics), transform=plt.gca().transAxes, 
+                fontsize=12, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+        plt.axis('off')
+        plt.title('Prediction Session Summary')
+        
+        plt.tight_layout()
+        plt.savefig("prediction_analytics.png", dpi=300, bbox_inches='tight')
+        mlflow.log_artifact("prediction_analytics.png")
+        plt.close()
+        
+        self.logger.info("Prediction analytics visualization logged to MLflow")
 
 
 class BatchProcessor:

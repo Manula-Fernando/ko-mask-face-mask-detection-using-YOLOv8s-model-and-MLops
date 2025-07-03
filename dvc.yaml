@@ -1,16 +1,14 @@
-# DVC Pipeline for Face Mask Detection MLOps
+# DVC Pipeline for Professional Face Mask Detection MLOps
 
 stages:
   data_preprocessing:
     cmd: python src/data_preprocessing.py
     deps:
       - src/data_preprocessing.py
-      - data/raw/images.zip
+      - data/raw/images/
       - config/config.yaml
     outs:
-      - data/processed/train
-      - data/processed/val
-      - data/processed/test
+      - data/processed/splits/
     metrics:
       - data/processed/data_stats.json
     
@@ -18,23 +16,21 @@ stages:
     cmd: python src/model_training.py
     deps:
       - src/model_training.py
-      - data/processed/train
-      - data/processed/val
+      - data/processed/splits/
       - config/config.yaml
     outs:
-      - models/mask_detector.h5
-      - models/best_mask_detector.h5
+      - models/best_mask_detector_imbalance_optimized.h5
     metrics:
-      - models/metrics.json
+      - models/training_metrics.json
     plots:
-      - models/training_history.json
+      - models/training_plots.json
       
   model_evaluation:
     cmd: python src/predict.py --evaluate
     deps:
       - src/predict.py
-      - models/mask_detector.h5
-      - data/processed/test
+      - models/best_mask_detector_imbalance_optimized.h5
+      - data/processed/splits/test/
       - config/config.yaml
     metrics:
       - models/evaluation_metrics.json
@@ -42,12 +38,14 @@ stages:
       - models/evaluation_plots.json
 
 plots:
-  - models/training_history.json:
+  - models/training_plots.json:
       x: epoch
       y:
         - accuracy
         - val_accuracy
-      title: "Training History - Accuracy"
+        - loss
+        - val_loss
+      title: "Professional Face Mask Detection - Training History"
       
   - models/training_history.json:
       x: epoch  
