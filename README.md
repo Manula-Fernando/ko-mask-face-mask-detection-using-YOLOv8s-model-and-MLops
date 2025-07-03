@@ -1,376 +1,275 @@
-# Face Mask Detection MLOps Pipeline
+# 🎯 Face Mask Detection - Production MLOps Pipeline
 
-[![CI/CD Pipeline](https://github.com/username/face-mask-detection-mlops/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/username/face-mask-detection-mlops/actions)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![TensorFlow 2.13+](https://img.shields.io/badge/TensorFlow-2.13+-orange.svg)](https://tensorflow.org/)
-[![MLflow](https://img.shields.io/badge/MLflow-2.7+-green.svg)](https://mlflow.org/)
-[![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](https://docker.com/)
+[![Python](https://img.shields.io/badge/Python-3.10-blue.svg)](https://python.org)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.19-orange.svg)](https://tensorflow.org)
+[![MLflow](https://img.shields.io/badge/MLflow-Tracking-green.svg)](https://mlflow.org)
+[![DVC](https://img.shields.io/badge/DVC-Data%20Versioning-red.svg)](https://dvc.org)
+[![Flask](https://img.shields.io/badge/Flask-API-lightgrey.svg)](https://flask.palletsprojects.com)
 
-A complete MLOps implementation for real-time face mask detection using deep learning, featuring experiment tracking, model versioning, CI/CD pipelines, and production deployment.
+Production-ready MLOps pipeline for face mask detection using MobileNetV2 with comprehensive data versioning, experiment tracking, and deployment capabilities.
 
-## 🎯 Project Overview
+## 🚀 Features
 
-This project demonstrates enterprise-grade MLOps practices for deploying a face mask detection system with:
+- ✅ **Automated Data Pipeline**: Extraction, validation, and stratified splitting
+- ✅ **Advanced Model Architecture**: MobileNetV2 with best-practice optimizations
+- ✅ **Experiment Tracking**: Complete MLflow integration
+- ✅ **Data Versioning**: DVC with Google Drive remote storage
+- ✅ **Production API**: Flask deployment with real-time inference
+- ✅ **Containerization**: Docker-ready for scalable deployment
 
-- **High-accuracy model** (>95%) using MobileNetV2 architecture
-- **Complete MLOps pipeline** with MLflow and DVC
-- **CI/CD automation** with GitHub Actions
-- **Production deployment** with Docker and Flask
-- **Real-time monitoring** and drift detection
-- **Comprehensive documentation** and reproducibility
+## 📊 Dataset
+
+- **Source**: [Andrew Ng Face Mask Detection Dataset](https://www.kaggle.com/datasets/andrewmvd/face-mask-detection/data)
+- **Images**: 853 images with PASCAL VOC annotations
+- **Classes**: `with_mask`, `without_mask`, `mask_weared_incorrect`
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Data Layer    │    │   Model Layer   │    │   Service Layer │
-│                 │    │                 │    │                 │
-│ • Raw Images    │───▶│ • Preprocessing │───▶│ • Flask Web App │
-│ • DVC Tracking  │    │ • MobileNetV2   │    │ • REST API      │
-│ • Versioning    │    │ • MLflow Track  │    │ • Webcam Stream │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ Infrastructure  │    │   Monitoring    │    │     CI/CD       │
-│                 │    │                 │    │                 │
-│ • Docker        │    │ • Model Metrics │    │ • GitHub Actions│
-│ • Compose       │    │ • Drift Detection│    │ • Auto Testing  │
-│ • Kubernetes    │    │ • Logging       │    │ • Auto Deploy   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-## 📁 Project Structure
-
-```
 face-mask-detection-mlops/
-├── .dvc/                   # DVC metadata
-├── .github/                # GitHub-specific files
-│   └── workflows/
-│       └── main.yml        # CI/CD workflow
-├── .dockerignore
-├── .gitignore
-├── app/
-│   ├── __init__.py
-│   ├── main.py             # Flask application
-│   └── templates/
-│       └── index.html
-├── config/
-│   └── config.yaml         # Configuration file
-├── data/
-│   ├── processed/          # Processed data
-│   └── raw/                # Raw data (add to DVC)
-│       ├── with_mask/      # Images with masks
-│       └── without_mask/   # Images without masks
-├── models/                 # Trained models (add to DVC)
-├── notebooks/
-│   └── model_development_report.ipynb # Project report
-├── src/
-│   ├── __init__.py
-│   ├── data_preprocessing.py # Data preprocessing pipeline
-│   ├── model_training.py   # Model training pipeline
-│   ├── predict.py          # Prediction functions
-│   └── monitoring.py       # Model monitoring
-├── tests/
-│   ├── __init__.py
-│   └── test_app.py         # Unit tests
-├── Dockerfile              # Docker configuration
-├── README.md               # Project documentation
-├── requirements.txt        # Python dependencies
-└── dvc.yaml                # DVC pipeline definition
+├── 📓 Complete_MLOps_Setup_Guide.ipynb   # Complete pipeline notebook
+├── 🗂️ src/                               # Source code
+│   ├── data_preprocessing.py             # Data processing pipeline
+│   ├── model_training.py                 # Model training with MLflow
+│   └── predict.py                        # Prediction utilities
+├── 🌐 app/                               # Flask API
+│   ├── main.py                          # API server
+│   └── templates/index.html             # Web interface
+├── 📁 data/                             # Data storage
+│   ├── raw/                             # Original dataset
+│   └── processed/                       # Processed splits
+├── 🤖 models/                           # Trained models
+├── 📊 mlruns/                           # MLflow experiments
+├── 🐳 Dockerfile                        # Container configuration
+└── 📋 requirements.txt                  # Dependencies
 ```
 
-## 🚀 Quick Start
+## ⚡ Quick Start
 
-### Prerequisites
-
-- Python 3.8+
-- Git
-- Docker (optional)
-- DVC (optional)
-
-### 1. Clone Repository
+### 1. Environment Setup
 
 ```bash
-git clone https://github.com/username/face-mask-detection-mlops.git
+# Clone repository
+git clone <your-repo-url>
 cd face-mask-detection-mlops
-```
 
-### 2. Setup Environment
-
-```bash
 # Create virtual environment
 python -m venv venv
-
-# Activate virtual environment
-# On Windows:
-venv\Scripts\activate
-# On Linux/Mac:
-source venv/bin/activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-### 3. Prepare Data
+### 2. Dataset Setup
 
 ```bash
-# Create data directories
-mkdir -p data/raw/with_mask data/raw/without_mask
-
-# Add your training images:
-# - data/raw/with_mask/ (images of people wearing masks)
-# - data/raw/without_mask/ (images of people not wearing masks)
+# Download dataset from Kaggle
+# Save as: data/raw/images.zip
 ```
 
-### 4. Configure MLflow
+### 3. Training Pipeline
 
 ```bash
-# Start MLflow server
-mlflow ui --port 5000
-# Open http://localhost:5000 in your browser
-```
+# Run the complete notebook
+jupyter notebook Complete_MLOps_Setup_Guide.ipynb
 
-### 5. Train Model
-
-```bash
-# Preprocess data
+# Or run individual components
 python src/data_preprocessing.py
-
-# Train model with MLflow tracking
 python src/model_training.py
 ```
 
-### 6. Run Web Application
+### 4. Experiment Tracking
 
 ```bash
-# Start Flask app
-python app/main.py
-# Open http://localhost:8080 in your browser
+# Start MLflow UI
+mlflow ui
+
+# View at: http://localhost:5000
 ```
 
-## 🐳 Docker Deployment
-
-### Build and Run
+### 5. API Deployment
 
 ```bash
-# Build Docker image
-docker build -t face-mask-detection .
+# Start Flask API
+cd app && python main.py
+
+# Access at: http://localhost:8000
+```
+
+### 6. Docker Deployment
+
+```bash
+# Build container
+docker build -t facemask-api .
 
 # Run container
-docker run -p 8080:8080 face-mask-detection
-
-# Or use Docker Compose
-docker-compose up -d
+docker run -p 8000:8000 facemask-api
 ```
 
-### Access Services
+## 🔧 Model Architecture
 
-- **Web App:** http://localhost:8080
-- **MLflow UI:** http://localhost:5000
-- **API Health:** http://localhost:8080/health
+```python
+MobileNetV2 (ImageNet weights)
+├── GlobalAveragePooling2D()
+├── BatchNormalization()
+├── Dropout(0.5)
+├── Dense(256, activation='relu')
+├── BatchNormalization()
+├── Dropout(0.3)
+└── Dense(3, activation='softmax')
+```
 
-## 🔬 MLOps Features
+**Key Improvements:**
+- GlobalAveragePooling2D instead of Flatten (reduces overfitting)
+- Proper BatchNormalization placement
+- Advanced callbacks (EarlyStopping, ReduceLROnPlateau)
+- Class weight balancing for imbalanced datasets
 
-### Experiment Tracking
+## 📊 Performance Metrics
 
-- **MLflow Integration:** Track experiments, parameters, metrics
-- **Model Registry:** Version and stage models
-- **Artifact Storage:** Store models, plots, and data
-- **Reproducibility:** Consistent environment and results
+The model tracks comprehensive metrics:
+- **Accuracy**: Overall classification accuracy
+- **Precision**: Per-class precision scores  
+- **Recall**: Per-class recall scores
+- **AUC**: Area under the ROC curve
+- **F1-Score**: Harmonic mean of precision and recall
 
-### Data Management
+## 🔄 MLOps Pipeline
 
-- **DVC Pipeline:** Version control for data and models
-- **Data Validation:** Automated quality checks
-- **Preprocessing:** Standardized data preparation
-- **Augmentation:** Enhance training data diversity
-
-### CI/CD Pipeline
-
-- **Automated Testing:** Unit tests, integration tests
-- **Code Quality:** Linting, formatting, type checking
-- **Security Scanning:** Vulnerability detection
-- **Deployment:** Automated container builds and deployment
-
-### Model Monitoring
-
-- **Performance Tracking:** Real-time accuracy monitoring
-- **Data Drift Detection:** Input distribution changes
-- **Alert System:** Automated notifications
-- **Logging:** Comprehensive prediction logging
-
-## 📊 Model Performance
-
-| Metric | Score |
-|--------|-------|
-| Accuracy | >95% |
-| Precision | >93% |
-| Recall | >94% |
-| F1-Score | >93% |
-| Inference Time | <50ms |
-
-## 🛠️ Development
-
-### Setup Development Environment
-
+### Data Versioning (DVC)
 ```bash
-# Install development dependencies
-pip install -r requirements.txt
-
-# Install pre-commit hooks
-pre-commit install
-
-# Run tests
-pytest tests/ -v
-
-# Run linting
-flake8 src/ app/ tests/
-
-# Format code
-black src/ app/ tests/
+# Setup Google Drive remote
+dvc remote add -d gdrive gdrive://your-folder-id
+dvc push
 ```
 
-### Project Commands
+### Experiment Tracking (MLflow)
+- Automated parameter logging
+- Model versioning and artifacts
+- Performance comparison dashboard
+- Training history visualization
 
-```bash
-# Data preprocessing
-python src/data_preprocessing.py
+### Continuous Integration
+- Automated testing with pytest
+- Model validation pipelines
+- Performance regression detection
 
-# Model training
-python src/model_training.py --experiment-name "my_experiment"
-
-# Model evaluation
-python src/predict.py
-
-# Run monitoring
-python src/monitoring.py
-
-# Start web app
-python app/main.py
-```
-
-## 📈 Monitoring & Metrics
-
-### Health Check
-
-```bash
-curl http://localhost:8080/health
-```
-
-### Metrics Endpoint
-
-```bash
-curl http://localhost:8080/metrics
-```
-
-### MLflow UI
-
-Access experiment tracking at http://localhost:5000
-
-## 🔧 Configuration
-
-Edit `config/config.yaml` to customize:
-
-- Model parameters
-- Training settings
-- Data paths
-- MLflow configuration
-- Deployment settings
-
-## 🧪 Testing
-
-### Run All Tests
-
-```bash
-pytest tests/ -v --cov=src --cov=app
-```
-
-### Test Categories
-
-- **Unit Tests:** Individual component testing
-- **Integration Tests:** End-to-end workflow testing
-- **API Tests:** REST endpoint validation
-- **Model Tests:** Model performance validation
-
-## 📚 API Documentation
-
-### Endpoints
+## 🌐 API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/` | GET | Home page |
-| `/predict` | GET/POST | Image upload and prediction |
-| `/api/predict` | POST | REST API for predictions |
-| `/webcam` | GET | Real-time webcam detection |
-| `/health` | GET | System health check |
-| `/metrics` | GET | Performance metrics |
+| `/` | GET | Web interface |
+| `/predict` | POST | Image prediction |
+| `/health` | GET | Health check |
+| `/api/info` | GET | API information |
 
-### Example API Usage
+### Example Usage
 
 ```python
 import requests
-import base64
 
-# Encode image
-with open("image.jpg", "rb") as f:
-    image_data = base64.b64encode(f.read()).decode()
-
-# Make prediction
-response = requests.post(
-    "http://localhost:8080/api/predict",
-    json={"image": image_data}
-)
-
+# Upload image for prediction
+files = {'file': open('image.jpg', 'rb')}
+response = requests.post('http://localhost:8000/predict', files=files)
 result = response.json()
-print(f"Prediction: {result['predicted_class']}")
+
+print(f"Prediction: {result['prediction']}")
 print(f"Confidence: {result['confidence']:.2f}")
 ```
 
-## 🚀 Deployment Options
+## 🐳 Production Deployment
 
-### Local Development
+### Docker Compose (Recommended)
 
-```bash
-python app/main.py
+```yaml
+version: '3.8'
+services:
+  facemask-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - ./models:/app/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 ```
 
-### Docker
+### Kubernetes Deployment
 
-```bash
-docker-compose up -d
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: facemask-detection
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: facemask-detection
+  template:
+    metadata:
+      labels:
+        app: facemask-detection
+    spec:
+      containers:
+      - name: api
+        image: facemask-api:latest
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
 ```
 
-### Cloud Deployment
+## 📈 Monitoring & Observability
 
-- **AWS:** ECS, EKS, Lambda
-- **Google Cloud:** Cloud Run, GKE
-- **Azure:** Container Instances, AKS
-- **Heroku:** Container deployment
+- **Health Checks**: Built-in health monitoring endpoints
+- **Logging**: Structured logging with configurable levels
+- **Metrics**: Custom metrics for model performance tracking
+- **Alerts**: Integration-ready for monitoring systems
 
-## 🔒 Security
+## 🧪 Testing
 
-- Input validation and sanitization
-- Rate limiting for API endpoints
-- Container security scanning
-- Dependency vulnerability checks
-- No sensitive data logging
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=src
+
+# Run specific test categories
+pytest tests/test_data_preprocessing.py
+pytest tests/test_model_training.py
+pytest tests/test_predict.py
+pytest tests/test_api.py
+```
+
+## 📚 Documentation
+
+- **API Documentation**: Interactive docs at `/docs` (when using FastAPI)
+- **Model Documentation**: Detailed architecture and training process
+- **Deployment Guide**: Step-by-step production deployment
+- **Troubleshooting**: Common issues and solutions
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Code Standards
-
-- **Python:** PEP 8 compliance
-- **Formatting:** Black code formatter
-- **Linting:** Flake8 standards
-- **Type Hints:** MyPy type checking
-- **Testing:** Pytest with >80% coverage
+2. Create a feature branch: `git checkout -b feature-name`
+3. Make your changes and add tests
+4. Run tests: `pytest`
+5. Commit changes: `git commit -am 'Add feature'`
+6. Push to branch: `git push origin feature-name`
+7. Submit a pull request
 
 ## 📄 License
 
@@ -378,29 +277,29 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **TensorFlow Team** for the deep learning framework
-- **MLflow Community** for experiment tracking tools
-- **DVC Team** for data version control
-- **Flask Community** for the web framework
-- **Open Source Contributors** for various tools and libraries
+- **Dataset**: Andrew Ng Face Mask Detection Dataset
+- **Framework**: TensorFlow/Keras for deep learning
+- **MLOps**: MLflow for experiment tracking
+- **Data Versioning**: DVC for data pipeline management
 
-## 📞 Support
+## 🔧 Troubleshooting
 
-For questions and support:
+### Common Issues
 
-- **GitHub Issues:** [Report bugs and feature requests](https://github.com/username/face-mask-detection-mlops/issues)
-- **Documentation:** Check the [Wiki](https://github.com/username/face-mask-detection-mlops/wiki)
-- **Email:** support@example.com
+1. **Model not loading**: Ensure model file exists in `models/` directory
+2. **Dependencies missing**: Run `pip install -r requirements.txt`
+3. **GPU issues**: Set `CUDA_VISIBLE_DEVICES=""` for CPU-only inference
+4. **Port conflicts**: Change port in `app/main.py` if 8000 is occupied
 
-## 📈 Roadmap
+### Performance Optimization
 
-- [ ] Multi-class mask type detection
-- [ ] Mobile app deployment
-- [ ] Real-time video stream processing
-- [ ] Cloud-native deployment
-- [ ] Advanced drift detection methods
-- [ ] Edge device optimization
+- **Batch Processing**: Use batch prediction for multiple images
+- **Model Optimization**: Consider TensorRT or TensorFlow Lite for edge deployment
+- **Caching**: Implement Redis caching for frequent predictions
+- **Load Balancing**: Use nginx or similar for production traffic
 
 ---
 
-**Built with ❤️ for public health and safety**
+**🌟 Ready for Production Deployment! 🌟**
+
+For questions and support, please open an issue or contact the development team.

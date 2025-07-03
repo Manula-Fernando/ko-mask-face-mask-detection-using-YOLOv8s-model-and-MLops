@@ -1,351 +1,259 @@
-"""
-Prediction module for face mask detection.
-This module handles model loading and inference.
-"""
-
+# Face Mask Detection - Production Prediction with Real-time Capabilities
 import os
 import cv2
 import numpy as np
 import tensorflow as tf
-import yaml
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional
 import logging
-import json
-import argparse
-from typing import Tuple, List, Dict, Any
-import mlflow
-import mlflow.tensorflow
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from sklearn.metrics import classification_report, confusion_matrix
+from datetime import datetime
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-class MaskPredictor:
-    """Face mask detection predictor."""
+class FaceMaskPredictor:
+    """Production face mask detection predictor with comprehensive capabilities."""
     
-    def __init__(self, config_path: str = "config/config.yaml"):
-        """Initialize the predictor with configuration."""
-        with open(config_path, 'r') as file:
-            self.config = yaml.safe_load(file)
-        
-        self.model_config = self.config['model']
-        self.mlflow_config = self.config['mlflow']
-        
+    CLASSES = ['with_mask', 'without_mask', 'mask_weared_incorrect']
+    
+    def __init__(self, model_path: str):
+        self.model_path = model_path
         self.model = None
-        self.class_names = self.config['data']['classes']
         
-        logger.info("MaskPredictor initialized")
+        # Setup logging
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        self.logger = logging.getLogger(__name__)
+        
+        self.load_model()
     
-    def load_model(self, model_path: str = None) -> tf.keras.Model:
-        """Load the trained model."""
-        if model_path:
-            logger.info(f"Loading model from {model_path}")
-            self.model = tf.keras.models.load_model(model_path)
-        else:
-            # Load from MLflow model registry
-            logger.info("Loading model from MLflow registry")
-            model_name = "face_mask_detector"
-            stage = self.config['deployment']['model_stage']
+    def load_model(self):
+        """Load the trained model with comprehensive error handling."""
+        if not os.path.exists(self.model_path):
+            self.logger.error(f"Model not found: {self.model_path}")
+            return
+        
+        try:
+            self.model = tf.keras.models.load_model(self.model_path)
+            self.logger.info(f"✅ Model loaded successfully: {self.model_path}")
             
-            try:
-                model_uri = f"models:/{model_name}/{stage}"
-                self.model = mlflow.tensorflow.load_model(model_uri)
-                logger.info(f"Loaded model {model_name} from {stage} stage")
-            except Exception as e:
-                logger.error(f"Failed to load model from MLflow: {str(e)}")
-                # Fallback to latest model file
-                models_dir = "models"
-                if os.path.exists(models_dir):
-                    model_files = [f for f in os.listdir(models_dir) if f.endswith('.h5')]
-                    if model_files:
-                        latest_model = max(model_files)
-                        model_path = os.path.join(models_dir, latest_model)
-                        logger.info(f"Loading fallback model: {model_path}")
-                        self.model = tf.keras.models.load_model(model_path)
-                    else:
-                        raise ValueError("No trained model found!")
-                else:
-                    raise ValueError("Models directory not found!")
-        
-        return self.model
+            # Log model info
+            total_params = self.model.count_params()
+            self.logger.info(f"📊 Model parameters: {total_params:,}")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to load model: {e}")
     
-    def preprocess_image(self, image: np.ndarray) -> np.ndarray:
-        """Preprocess image for prediction."""
-        # Resize image to model input size
-        target_size = tuple(self.model_config['input_shape'][:2])
-        image_resized = cv2.resize(image, target_size)
-        
-        # Convert BGR to RGB if needed
-        if len(image_resized.shape) == 3 and image_resized.shape[2] == 3:
-            image_resized = cv2.cvtColor(image_resized, cv2.COLOR_BGR2RGB)
-        
-        # Normalize pixel values
-        image_normalized = image_resized.astype('float32') / 255.0
-        
-        # Add batch dimension
-        image_batch = np.expand_dims(image_normalized, axis=0)
-        
-        return image_batch
+    def preprocess_image(self, image_path: str) -> Optional[np.ndarray]:
+        """Preprocess image for prediction with enhanced normalization."""
+        try:
+            # Load image
+            image = cv2.imread(image_path)
+            if image is None:
+                raise ValueError(f"Could not load image: {image_path}")
+            
+            # Convert BGR to RGB
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            
+            # Resize to model input size
+            image = cv2.resize(image, (224, 224))
+            
+            # Normalize using ImageNet statistics (same as training)
+            image = image.astype(np.float32) / 255.0
+            image = (image - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
+            
+            # Add batch dimension
+            image = np.expand_dims(image, axis=0)
+            
+            return image
+            
+        except Exception as e:
+            self.logger.error(f"Preprocessing failed for {image_path}: {e}")
+            return None
     
-    def predict_single(self, image: np.ndarray) -> Dict[str, Any]:
-        """Make prediction on a single image."""
+    def preprocess_frame(self, frame: np.ndarray) -> Optional[np.ndarray]:
+        """Preprocess video frame for real-time prediction."""
+        try:
+            # Frame should already be in RGB format from OpenCV webcam
+            if len(frame.shape) != 3 or frame.shape[2] != 3:
+                raise ValueError("Invalid frame shape")
+            
+            # Resize to model input size
+            frame = cv2.resize(frame, (224, 224))
+            
+            # Normalize using ImageNet statistics
+            frame = frame.astype(np.float32) / 255.0
+            frame = (frame - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
+            
+            # Add batch dimension
+            frame = np.expand_dims(frame, axis=0)
+            
+            return frame
+            
+        except Exception as e:
+            self.logger.error(f"Frame preprocessing failed: {e}")
+            return None
+    
+    def predict(self, image_path: str) -> Dict:
+        """Make prediction on single image with comprehensive output."""
         if self.model is None:
-            raise ValueError("Model not loaded. Call load_model() first.")
+            return {
+                'error': 'Model not loaded',
+                'prediction': 'unknown',
+                'confidence': 0.0,
+                'all_probabilities': {}
+            }
         
         # Preprocess image
-        processed_image = self.preprocess_image(image)
+        processed_image = self.preprocess_image(image_path)
+        if processed_image is None:
+            return {
+                'error': 'Failed to preprocess image',
+                'prediction': 'unknown',
+                'confidence': 0.0,
+                'all_probabilities': {}
+            }
         
-        # Make prediction
-        predictions = self.model.predict(processed_image, verbose=0)
-        
-        # Get predicted class and confidence
-        predicted_class_idx = np.argmax(predictions[0])
-        confidence = predictions[0][predicted_class_idx]
-        predicted_class = self.class_names[predicted_class_idx]
-        
-        # Get probabilities for both classes
-        probabilities = {
-            self.class_names[i]: float(predictions[0][i]) 
-            for i in range(len(self.class_names))
-        }
-        
-        result = {
-            'predicted_class': predicted_class,
-            'confidence': float(confidence),
-            'probabilities': probabilities
-        }
-        
-        return result
+        try:
+            # Make prediction
+            predictions = self.model.predict(processed_image, verbose=0)[0]
+            
+            # Get predicted class
+            predicted_class_idx = np.argmax(predictions)
+            predicted_class = self.CLASSES[predicted_class_idx]
+            confidence = float(predictions[predicted_class_idx])
+            
+            # All class probabilities
+            all_probabilities = {
+                self.CLASSES[i]: float(predictions[i]) for i in range(len(self.CLASSES))
+            }
+            
+            return {
+                'prediction': predicted_class,
+                'confidence': confidence,
+                'all_probabilities': all_probabilities,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Prediction failed: {e}")
+            return {
+                'error': str(e),
+                'prediction': 'unknown',
+                'confidence': 0.0,
+                'all_probabilities': {}
+            }
     
-    def predict_batch(self, images: List[np.ndarray]) -> List[Dict[str, Any]]:
-        """Make predictions on a batch of images."""
+    def predict_frame(self, frame: np.ndarray) -> Tuple[str, float]:
+        """Make prediction on video frame - optimized for real-time."""
         if self.model is None:
-            raise ValueError("Model not loaded. Call load_model() first.")
+            return "unknown", 0.0
         
+        # Preprocess frame
+        processed_frame = self.preprocess_frame(frame)
+        if processed_frame is None:
+            return "error", 0.0
+        
+        try:
+            # Make prediction
+            predictions = self.model.predict(processed_frame, verbose=0)[0]
+            
+            # Get predicted class
+            predicted_class_idx = np.argmax(predictions)
+            predicted_class = self.CLASSES[predicted_class_idx]
+            confidence = float(predictions[predicted_class_idx])
+            
+            return predicted_class, confidence
+            
+        except Exception as e:
+            self.logger.error(f"Frame prediction failed: {e}")
+            return "error", 0.0
+    
+    def batch_predict(self, image_paths: List[str]) -> List[Dict]:
+        """Make predictions on multiple images."""
         results = []
-        for image in images:
-            result = self.predict_single(image)
+        
+        for image_path in image_paths:
+            result = self.predict(image_path)
+            result['image_path'] = image_path
             results.append(result)
         
         return results
     
-    def predict_from_path(self, image_path: str) -> Dict[str, Any]:
-        """Make prediction on an image file."""
-        # Load image
-        image = cv2.imread(image_path)
-        if image is None:
-            raise ValueError(f"Could not load image from {image_path}")
-        
-        return self.predict_single(image)
-    
-    def detect_faces_and_predict(self, image: np.ndarray, 
-                                face_cascade_path: str = "models/haarcascade_frontalface_default.xml") -> List[Dict[str, Any]]:
-        """Detect faces in image and predict mask for each face."""
+    def get_model_info(self) -> Dict:
+        """Get information about the loaded model."""
         if self.model is None:
-            raise ValueError("Model not loaded. Call load_model() first.")
+            return {'error': 'Model not loaded'}
         
-        # Load face cascade classifier
-        if not os.path.exists(face_cascade_path):
-            logger.warning(f"Face cascade file not found: {face_cascade_path}")
-            # Return prediction for entire image
-            return [self.predict_single(image)]
-        
-        face_cascade = cv2.CascadeClassifier(face_cascade_path)
-        
-        # Convert to grayscale for face detection
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-        # Detect faces
-        faces = face_cascade.detectMultiScale(
-            gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30)
-        )
-        
-        results = []
-        for (x, y, w, h) in faces:
-            # Extract face region
-            face_region = image[y:y+h, x:x+w]
-            
-            # Make prediction on face
-            prediction = self.predict_single(face_region)
-            
-            # Add bounding box coordinates
-            prediction['bbox'] = {'x': int(x), 'y': int(y), 'w': int(w), 'h': int(h)}
-            
-            results.append(prediction)
-          # If no faces detected, analyze entire image
-        if len(results) == 0:
-            logger.info("No faces detected, analyzing entire image")
-            results = [self.predict_single(image)]
-
-        return results
-
-    def evaluate_model(self, test_dir: str = None) -> Dict[str, Any]:
-        """Evaluate the model on test data."""
-        if self.model is None:
-            raise ValueError("Model not loaded. Call load_model() first.")
-        
-        if test_dir is None:
-            test_dir = self.config['paths']['test_dir']
-        
-        logger.info(f"Evaluating model on test data: {test_dir}")
-        
-        # Create test data generator
-        test_datagen = ImageDataGenerator(rescale=1./255)
-        
-        test_generator = test_datagen.flow_from_directory(
-            test_dir,
-            target_size=tuple(self.model_config['input_shape'][:2]),
-            batch_size=32,
-            class_mode='categorical',
-            shuffle=False
-        )
-        
-        # Make predictions
-        predictions = self.model.predict(test_generator, verbose=0)
-        predicted_classes = np.argmax(predictions, axis=1)
-        
-        # Get true classes
-        true_classes = test_generator.classes
-        class_labels = list(test_generator.class_indices.keys())
-        
-        # Calculate metrics
-        report = classification_report(
-            true_classes, 
-            predicted_classes, 
-            target_names=class_labels,
-            output_dict=True
-        )
-        
-        cm = confusion_matrix(true_classes, predicted_classes)
-        
-        # Calculate overall accuracy
-        accuracy = np.sum(predicted_classes == true_classes) / len(true_classes)
-        
-        evaluation_results = {
-            'accuracy': float(accuracy),
-            'test_samples': len(true_classes),
-            'classification_report': report,
-            'confusion_matrix': cm.tolist(),
-            'class_labels': class_labels
-        }
-        
-        # Save evaluation results
-        os.makedirs('models', exist_ok=True)
-        eval_path = os.path.join('models', 'evaluation_metrics.json')
-        
-        # Convert numpy types to native Python types for JSON serialization
-        eval_results_json = json.loads(json.dumps(evaluation_results, default=str))
-        
-        with open(eval_path, 'w') as f:
-            json.dump(eval_results_json, f, indent=2)
-        
-        # Create evaluation plots data
-        plots_data = {
-            'accuracy': float(accuracy),
-            'precision_by_class': {},
-            'recall_by_class': {},
-            'f1_by_class': {}
-        }
-        
-        for class_name in class_labels:
-            if class_name in report:
-                plots_data['precision_by_class'][class_name] = report[class_name]['precision']
-                plots_data['recall_by_class'][class_name] = report[class_name]['recall']
-                plots_data['f1_by_class'][class_name] = report[class_name]['f1-score']
-        
-        plots_path = os.path.join('models', 'evaluation_plots.json')
-        with open(plots_path, 'w') as f:
-            json.dump(plots_data, f, indent=2)
-        
-        logger.info(f"Evaluation results saved to {eval_path}")
-        logger.info(f"Evaluation plots saved to {plots_path}")
-        logger.info(f"Test Accuracy: {accuracy:.4f}")
-        
-        return evaluation_results
-
-# Real-time prediction functions for Phase 3 MLOps Implementation
-
-def get_model(model_path):
-    """Loads and returns the trained Keras model."""
-    try:
-        model = tf.keras.models.load_model(model_path)
-        logger.info(f"Model loaded successfully from {model_path}")
-        return model
-    except Exception as e:
-        logger.error(f"Error loading model from {model_path}: {e}")
-        return None
-
-def predict_frame(frame, face_cascade, model):
-    """Processes a single frame, detects faces, and predicts masks."""
-    if frame is None or face_cascade is None or model is None:
-        return frame
-    
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces_detected = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60))
-
-    # Define labels and colors for Sri Lankan context
-    labels = ["With Mask", "Mask Worn Incorrectly", "Without Mask"]
-    colors = [(0, 255, 0), (0, 165, 255), (0, 0, 255)]  # Green, Orange, Red
-
-    for (x, y, w, h) in faces_detected:
         try:
-            face_frame = frame[y:y+h, x:x+w]
-            face_frame_rgb = cv2.cvtColor(face_frame, cv2.COLOR_BGR2RGB)
-            face_frame_resized = cv2.resize(face_frame_rgb, (224, 224))
-            face_frame_array = np.expand_dims(face_frame_resized, axis=0)
-            face_frame_preprocessed = face_frame_array / 255.0  # Normalize to [0,1]
-
-            preds = model.predict(face_frame_preprocessed, verbose=0)[0]
-            
-            # Get the class with the highest probability
-            prediction_idx = np.argmax(preds)
-            confidence = preds[prediction_idx]
-
-            label_text = f"{labels[prediction_idx]}: {confidence:.2f}"
-            color = colors[prediction_idx]
-            
-            # Displaying the labels and bounding boxes
-            cv2.putText(frame, label_text, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-            
+            return {
+                'model_path': self.model_path,
+                'total_parameters': self.model.count_params(),
+                'input_shape': self.model.input_shape,
+                'output_shape': self.model.output_shape,
+                'classes': self.CLASSES,
+                'num_classes': len(self.CLASSES)
+            }
         except Exception as e:
-            logger.error(f"Error processing face detection: {e}")
-            # Draw a simple rectangle if processing fails
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 255), 2)
-            
-    return frame
+            return {'error': str(e)}
 
-def main():
-    """Main function with command line argument handling."""
-    parser = argparse.ArgumentParser(description='Face Mask Detection Prediction')
-    parser.add_argument('--evaluate', action='store_true', 
-                       help='Evaluate model on test data')
-    parser.add_argument('--image', type=str, 
-                       help='Path to image for prediction')
-    
-    args = parser.parse_args()
-    
-    # Initialize predictor
-    predictor = MaskPredictor()
-    
-    # Load model
-    predictor.load_model()
-    
-    if args.evaluate:
-        # Run evaluation
-        logger.info("Running model evaluation...")
-        results = predictor.evaluate_model()
-        logger.info(f"Evaluation completed. Test Accuracy: {results['accuracy']:.4f}")
-        
-    elif args.image:
-        # Predict on single image
-        result = predictor.predict_from_path(args.image)
-        print(f"Prediction: {result}")
-        
-    else:
-        logger.info("Predictor ready for inference")
-        logger.info("Use --evaluate to run evaluation or --image <path> to predict on an image")
 
-if __name__ == "__main__":
-    main()
+class BatchProcessor:
+    """Batch processing utility for multiple images."""
+    
+    def __init__(self, predictor: FaceMaskPredictor):
+        self.predictor = predictor
+        self.logger = logging.getLogger(__name__)
+    
+    def process_directory(self, directory_path: str, output_file: str = None) -> List[Dict]:
+        """Process all images in a directory."""
+        directory = Path(directory_path)
+        
+        if not directory.exists():
+            self.logger.error(f"Directory not found: {directory_path}")
+            return []
+        
+        # Find all image files
+        image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff'}
+        image_paths = [
+            str(file) for file in directory.rglob('*') 
+            if file.suffix.lower() in image_extensions
+        ]
+        
+        if not image_paths:
+            self.logger.warning(f"No images found in: {directory_path}")
+            return []
+        
+        self.logger.info(f"Processing {len(image_paths)} images...")
+        
+        # Process all images
+        results = self.predictor.batch_predict(image_paths)
+        
+        # Save results if output file specified
+        if output_file:
+            self.save_results(results, output_file)
+        
+        return results
+    
+    def save_results(self, results: List[Dict], output_file: str):
+        """Save batch processing results to file."""
+        import json
+        
+        try:
+            with open(output_file, 'w') as f:
+                json.dump(results, f, indent=2)
+            self.logger.info(f"Results saved to: {output_file}")
+        except Exception as e:
+            self.logger.error(f"Failed to save results: {e}")
+
+
+# Utility functions for easy import
+def load_predictor(model_path: str = "models/best_mask_detector_imbalance_optimized.h5") -> FaceMaskPredictor:
+    """Load the face mask predictor with default model path."""
+    return FaceMaskPredictor(model_path)
+
+def predict_image(image_path: str, model_path: str = "models/best_mask_detector_imbalance_optimized.h5") -> Dict:
+    """Quick prediction on a single image."""
+    predictor = load_predictor(model_path)
+    return predictor.predict(image_path)
+
+def predict_images(image_paths: List[str], model_path: str = "models/best_mask_detector_imbalance_optimized.h5") -> List[Dict]:
+    """Quick batch prediction on multiple images."""
+    predictor = load_predictor(model_path)
+    return predictor.batch_predict(image_paths)

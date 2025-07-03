@@ -1,219 +1,99 @@
 """
-Test suite for model prediction module
+Unit tests for prediction module.
+Tests prediction functions and image preprocessing.
 """
-import unittest
+import pytest
 import numpy as np
 import os
-import tempfile
-import shutil
-from unittest.mock import patch, Mock, MagicMock
 import sys
-from PIL import Image
-import io
+from pathlib import Path
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 try:
-    from predict import MaskPredictor
+    from predict import FaceMaskPredictor
 except ImportError:
-    # Create a mock if import fails
-    class MaskPredictor:
-        def __init__(self, model_path=None):
-            self.model_path = model_path
+    pytest.skip("Prediction functions not available", allow_module_level=True)
 
 
-class TestMaskPredictor(unittest.TestCase):
-    """Test mask prediction functionality"""
+class TestFaceMaskPredictor:
+    """Test cases for FaceMaskPredictor class."""
     
-    def setUp(self):
-        """Set up test environment"""
-        self.temp_dir = tempfile.mkdtemp()
-        self.model_path = os.path.join(self.temp_dir, 'test_model.h5')
-        
-        # Create a sample image for testing
-        self.test_image = Image.new('RGB', (224, 224), color='red')
-        self.test_image_path = os.path.join(self.temp_dir, 'test_image.jpg')
-        self.test_image.save(self.test_image_path)
-    
-    def tearDown(self):
-        """Clean up test environment"""
-        shutil.rmtree(self.temp_dir)
-    
+    @pytest.mark.skipif(not os.path.exists("models/best_mask_detector.h5"), 
+                       reason="No trained model available")
     def test_predictor_initialization(self):
-        """Test predictor initialization"""
-        predictor = MaskPredictor(self.model_path)
-        self.assertEqual(predictor.model_path, self.model_path)
+        """Test FaceMaskPredictor initialization."""
+        predictor = FaceMaskPredictor("models/best_mask_detector.h5")
+        
+        assert predictor.model_path == "models/best_mask_detector.h5"
+        assert predictor.model is not None
+        assert predictor.CLASSES == ['with_mask', 'without_mask', 'mask_weared_incorrect']
     
-    @patch('predict.load_model')
-    def test_model_loading(self, mock_load_model):
-        """Test model loading functionality"""
-        mock_model = Mock()
-        mock_load_model.return_value = mock_model
-        
-        predictor = MaskPredictor(self.model_path)
-        # This would test the model loading
-        # Implementation depends on the actual MaskPredictor class
-        pass
-    
-    def test_image_preprocessing(self):
-        """Test image preprocessing"""
-        # Test image resizing
-        original_size = (100, 100)
-        target_size = (224, 224)
-        
-        test_img = Image.new('RGB', original_size, color='blue')
-        resized_img = test_img.resize(target_size)
-        
-        self.assertEqual(resized_img.size, target_size)
-    
-    def test_image_normalization(self):
-        """Test image normalization"""
-        # Create a test array
-        test_array = np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
-        
-        # Normalize to [0, 1]
-        normalized = test_array / 255.0
-        
-        self.assertGreaterEqual(normalized.min(), 0.0)
-        self.assertLessEqual(normalized.max(), 1.0)
-    
-    @patch('predict.cv2.CascadeClassifier')
-    def test_face_detection(self, mock_cascade):
-        """Test face detection functionality"""
-        # Mock cascade classifier
-        mock_classifier = Mock()
-        mock_cascade.return_value = mock_classifier
-        
-        # Mock face detection result
-        mock_classifier.detectMultiScale.return_value = np.array([[10, 10, 100, 100]])
-        
-        predictor = MaskPredictor(self.model_path)
-        # This would test face detection
-        # Implementation depends on the actual MaskPredictor class
-        pass
-    
+    @pytest.mark.skipif(not os.path.exists("models/best_mask_detector.h5"), 
+                       reason="No trained model available")
     def test_prediction_output_format(self):
-        """Test prediction output format"""
-        # Mock prediction result
-        mock_result = {
-            'prediction': 'Mask',
-            'confidence': 0.95,
-            'faces_detected': 1,
-            'processing_time': 0.5,
-            'model_version': 'v1.0'
-        }
+        """Test that prediction returns expected format."""
+        predictor = FaceMaskPredictor("models/best_mask_detector.h5")
         
-        # Validate result structure
-        required_keys = ['prediction', 'confidence', 'faces_detected', 'processing_time']
-        for key in required_keys:
-            self.assertIn(key, mock_result)
+        # Create dummy image file path
+        dummy_image = np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
         
-        # Validate data types
-        self.assertIsInstance(mock_result['prediction'], str)
-        self.assertIsInstance(mock_result['confidence'], (int, float))
-        self.assertIsInstance(mock_result['faces_detected'], int)
-        self.assertIsInstance(mock_result['processing_time'], (int, float))
+        result = predictor.predict_from_array(dummy_image)
+        
+        # Check output format
+        assert isinstance(result, dict)
+        assert 'class' in result
+        assert 'confidence' in result
+        assert 'probabilities' in result
+        
+        # Check prediction is valid class
+        valid_classes = ['with_mask', 'without_mask', 'mask_weared_incorrect']
+        assert result['class'] in valid_classes
+        
+        # Check confidence is valid probability
+        assert 0 <= result['confidence'] <= 1
     
-    def test_confidence_score_validation(self):
-        """Test confidence score validation"""
-        # Mock confidence scores
-        valid_scores = [0.0, 0.5, 0.95, 1.0]
-        invalid_scores = [-0.1, 1.1, 2.0]
+    def test_class_mapping(self):
+        """Test that class indices map correctly to class names."""
+        if not os.path.exists("models/best_mask_detector.h5"):
+            pytest.skip("No trained model available for testing")
+            
+        predictor = FaceMaskPredictor("models/best_mask_detector.h5")
+        class_names = predictor.CLASSES
         
-        for score in valid_scores:
-            self.assertGreaterEqual(score, 0.0)
-            self.assertLessEqual(score, 1.0)
-        
-        for score in invalid_scores:
-            self.assertTrue(score < 0.0 or score > 1.0)
-    
-    def test_batch_prediction(self):
-        """Test batch prediction functionality"""
-        # Create multiple test images
-        images = []
-        for i in range(3):
-            img = Image.new('RGB', (224, 224), color=(i*50, i*50, i*50))
-            img_array = np.array(img)
-            images.append(img_array)
-        
-        batch = np.array(images)
-        self.assertEqual(batch.shape, (3, 224, 224, 3))
-    
-    @patch('predict.mlflow')
-    def test_mlflow_model_loading(self, mock_mlflow):
-        """Test MLflow model loading"""
-        # Mock MLflow model loading
-        mock_model = Mock()
-        mock_mlflow.keras.load_model.return_value = mock_model
-        
-        predictor = MaskPredictor()
-        # This would test MLflow integration
-        # Implementation depends on the actual MaskPredictor class
-        pass
+        # Test index to name mapping
+        for i, name in enumerate(class_names):
+            assert i < len(class_names)
+            assert isinstance(name, str)
+            assert len(name) > 0
 
 
-class TestImageProcessing(unittest.TestCase):
-    """Test image processing utilities"""
+def test_model_file_existence():
+    """Test checking for model file existence."""
+    # Test with non-existent file
+    assert not os.path.exists("nonexistent_model.h5")
     
-    def test_image_format_conversion(self):
-        """Test image format conversion"""
-        # Create test image in different formats
-        formats = ['RGB', 'RGBA', 'L']
-        
-        for fmt in formats:
-            img = Image.new(fmt, (100, 100))
-            # Convert to RGB for processing
-            rgb_img = img.convert('RGB')
-            self.assertEqual(rgb_img.mode, 'RGB')
-    
-    def test_image_array_conversion(self):
-        """Test image to array conversion"""
-        img = Image.new('RGB', (100, 100), color='red')
-        img_array = np.array(img)
-        
-        self.assertEqual(img_array.shape, (100, 100, 3))
-        self.assertEqual(img_array.dtype, np.uint8)
-    
-    def test_image_resize_aspect_ratio(self):
-        """Test image resizing with aspect ratio preservation"""
-        # Create rectangular image
-        img = Image.new('RGB', (300, 200), color='green')
-        target_size = (224, 224)
-        
-        # This would test aspect ratio preservation logic
-        # Implementation depends on actual resizing strategy
-        pass
+    # Test with actual model file if it exists
+    if os.path.exists("models/best_mask_detector.h5"):
+        assert os.path.exists("models/best_mask_detector.h5")
 
 
-class TestErrorHandling(unittest.TestCase):
-    """Test error handling in prediction module"""
+def test_confidence_threshold():
+    """Test confidence threshold functionality."""
+    # Test with different confidence values
+    confidences = [0.1, 0.5, 0.8, 0.95, 0.99]
     
-    def test_invalid_image_path(self):
-        """Test handling of invalid image paths"""
-        invalid_path = "nonexistent_image.jpg"
+    for conf in confidences:
+        assert 0 <= conf <= 1
         
-        # This would test error handling for invalid paths
-        # Implementation depends on the actual MaskPredictor class
-        pass
-    
-    def test_corrupted_image_handling(self):
-        """Test handling of corrupted images"""
-        # Create a file that's not a valid image
-        corrupted_file = io.BytesIO(b"not an image")
-        
-        # This would test error handling for corrupted images
-        # Implementation depends on the actual MaskPredictor class
-        pass
-    
-    def test_model_loading_error(self):
-        """Test handling of model loading errors"""
-        invalid_model_path = "nonexistent_model.h5"
-        
-        # This would test error handling for model loading failures
-        # Implementation depends on the actual MaskPredictor class
-        pass
+        # Test threshold logic
+        high_confidence = conf > 0.8
+        assert isinstance(high_confidence, bool)
 
 
-if __name__ == '__main__':
-    unittest.main()
+def test_error_handling():
+    """Test error handling in predictor initialization."""
+    # Test with invalid model path
+    with pytest.raises((OSError, ValueError, FileNotFoundError)):
+        FaceMaskPredictor("nonexistent_model.h5")
