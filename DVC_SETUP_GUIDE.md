@@ -45,8 +45,8 @@ git commit -m "Add DVC tracking for data and models
 # Example with AWS S3
 dvc remote add -d myremote s3://my-bucket/dvcstore
 
-# Example with Google Drive
-dvc remote add -d myremote gdrive://folder-id
+# Google Drive (YOUR ACTUAL FOLDER)
+dvc remote add -d myremote gdrive://1xbvj8QxoaOSgXUf935QvClsR-Zgykc4T
 
 # Example with local remote for testing
 dvc remote add -d myremote /tmp/dvcstore
@@ -63,6 +63,132 @@ dvc push
 
 # Pull data from remote storage
 dvc pull
+```
+
+## Google Drive Setup (Your Configuration)
+
+### Your Google Drive Folder
+- **Folder URL**: https://drive.google.com/drive/u/0/folders/1xbvj8QxoaOSgXUf935QvClsR-Zgykc4T
+- **Folder ID**: `1xbvj8QxoaOSgXUf935QvClsR-Zgykc4T`
+
+### Step-by-Step Setup
+```bash
+# 1. Add your Google Drive as DVC remote
+dvc remote add -d myremote gdrive://1xbvj8QxoaOSgXUf935QvClsR-Zgykc4T
+
+# 2. Commit the DVC configuration
+git add .dvc/config
+git commit -m "Add Google Drive as DVC remote storage"
+
+# 3. Push your data to Google Drive (first time authentication required)
+dvc push
+
+# 4. Verify the upload
+dvc status -c
+```
+
+### First-Time Authentication
+When you run `dvc push` for the first time:
+1. Your browser will open automatically
+2. Sign in to your Google account
+3. Grant DVC permission to access Google Drive
+4. DVC will store the authentication token locally
+
+### Verification
+After setup, check your Google Drive folder:
+- You'll see a `files/` directory with hash-named subdirectories
+- Your actual data files are stored with hash names
+- DVC maps these hashes to your original files
+
+## Troubleshooting Google Drive Authentication
+
+### Issue: "This app is blocked" Error
+If you encounter the error "This app is blocked" when trying to authenticate with Google Drive, follow these steps:
+
+#### Option 1: Try a Different Browser (Quick Fix)
+Sometimes the default browser blocks DVC authentication. Try these browsers:
+
+1. **Copy the authentication URL** from the terminal output
+2. **Open in a different browser**:
+   - If using Edge, try Chrome or Firefox
+   - If using Chrome, try Edge or Firefox
+   - Try an incognito/private window
+3. **Paste the URL** and complete authentication
+4. **Copy the authorization code** back to your terminal
+
+```bash
+# The URL will look like this:
+# https://accounts.google.com/o/oauth2/auth?client_id=710796635688-iivsgbgsb6uv1fap6635dhvuei09o66c.apps.googleusercontent.com&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2F&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.appdata&access_type=offline&response_type=code&approval_prompt=force
+
+# After successful authentication, you'll get a code to paste back in terminal
+```
+
+#### Option 2: Enable Less Secure App Access (Temporary Solution)
+1. Go to your Google Account settings: https://myaccount.google.com/
+2. Navigate to "Security" → "Less secure app access"
+3. Turn on "Allow less secure apps"
+4. Try `dvc push` again
+
+#### Option 2: Use Service Account (Recommended for Production)
+```bash
+# 1. Create a service account in Google Cloud Console
+# 2. Download the JSON key file
+# 3. Configure DVC to use service account
+dvc remote modify myremote gdrive_use_service_account true
+dvc remote modify myremote gdrive_service_account_json_file_path /path/to/service-account.json
+```
+
+#### Option 3: Alternative Storage Solutions
+If Google Drive continues to cause issues, consider these alternatives:
+
+```bash
+# AWS S3 (if you have AWS account)
+dvc remote add -d myremote s3://your-bucket-name/dvcstore
+
+# Local network storage (for testing)
+dvc remote add -d myremote /path/to/shared/storage
+
+# GitHub LFS (for smaller files)
+git lfs track "*.h5"
+git add .gitattributes
+```
+
+#### Option 4: Local Storage Solution (RECOMMENDED FOR NOW)
+If Google Drive authentication continues to fail, use local storage:
+
+```bash
+# Remove the problematic Google Drive remote
+dvc remote remove myremote
+
+# Add local storage (works immediately, no authentication needed)
+dvc remote add -d myremote C:\dvc-storage
+
+# Create the storage directory
+mkdir C:\dvc-storage
+
+# Test the setup
+dvc push
+```
+
+This creates a local DVC storage that:
+- ✅ Works immediately without authentication
+- ✅ Allows full DVC functionality for development
+- ✅ Can be moved to cloud storage later
+- ✅ Perfect for local development and testing
+
+### Verification Steps
+After successful authentication:
+```bash
+# Check remote status
+dvc remote list
+
+# Verify connection
+dvc status -c
+
+# Test with a small file first
+echo "test" > test.txt
+dvc add test.txt
+dvc push test.txt.dvc
 ```
 
 ## DVC Pipeline Configuration
