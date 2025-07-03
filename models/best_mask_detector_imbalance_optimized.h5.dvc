@@ -1,0 +1,5 @@
+outs:
+- md5: 38a57181bf78aa28d13d5cddbea62948
+  size: 13984528
+  hash: md5
+  path: best_mask_detector_imbalance_optimized.h5
