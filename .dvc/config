@@ -5,4 +5,4 @@
 ['remote "gdrive"']
     url = gdrive://1xbvj8QxoaOSgXUf935QvClsR-Zgykc4T
 ['remote "myremote"']
-    url = gdrive://1xbvj8QxoaOSgXUf935QvClsR-Zgykc4T
+    url = C:\dvc-storage
