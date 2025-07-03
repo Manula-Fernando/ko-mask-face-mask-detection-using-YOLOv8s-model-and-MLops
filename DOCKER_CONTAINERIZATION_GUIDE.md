@@ -51,7 +51,18 @@ Your project includes these Docker-related files:
    - Install and restart your computer
    - **Start Docker Desktop** from Start Menu or Desktop icon
 
-2. **Verify Docker is Running**:
+2. **VS Code Docker Extension** (Recommended):
+   - **Extension ID**: `ms-azuretools.vscode-docker`
+   - **Already installed in your workspace!** ✅
+   - **Features**:
+     - Visual container management
+     - Dockerfile syntax highlighting
+     - Build and run commands integration
+     - Container logs and terminal access
+     - Docker Compose support
+     - Registry management
+
+3. **Verify Docker is Running**:
 ```bash
 # Check Docker version
 docker --version
@@ -515,3 +526,219 @@ docker images face-mask-detector
 - [Docker Security Best Practices](https://docs.docker.com/engine/security/)
 
 Your Face Mask Detection model is now fully containerized and ready for deployment in any Docker-compatible environment! 🚀
+
+## 🎯 Using VS Code Docker Extension
+
+### Key Features Available Now:
+
+#### 1. **Docker Panel in Explorer**
+- Look at your **Explorer sidebar** - you'll see a Docker icon
+- Click it to view:
+  - **Images**: All your built Docker images
+  - **Containers**: Running and stopped containers
+  - **Registries**: Docker Hub, Azure, etc.
+  - **Volumes**: Docker volumes
+  - **Networks**: Docker networks
+
+#### 2. **Command Palette Integration**
+Press `Ctrl+Shift+P` and type "Docker" to see commands:
+- `Docker: Build Image` - Build from Dockerfile
+- `Docker: Run` - Run a container
+- `Docker: Compose Up` - Start Docker Compose
+- `Docker: Logs` - View container logs
+- `Docker: Attach Shell` - Open terminal in container
+
+#### 3. **Right-Click Context Menus**
+- **Dockerfile**: Right-click → "Build Image"
+- **docker-compose.yml**: Right-click → "Compose Up"
+- **Containers**: Right-click → Start/Stop/Remove/View Logs
+
+#### 4. **Integrated Terminal**
+- Access container shells directly in VS Code
+- View real-time logs in VS Code terminal
+- Execute commands in running containers
+
+### 🚀 Quick Start with VS Code Docker Extension:
+
+#### **Step 1: Build Image Using VS Code**
+1. Open `deployment/Dockerfile` in VS Code
+2. Right-click in the file → **"Build Image..."**
+3. Name: `face-mask-detector:latest`
+4. Watch build progress in VS Code terminal
+
+#### **Step 2: Run Container Using VS Code**
+1. Open Docker panel (Explorer sidebar)
+2. Find your image under "Images"
+3. Right-click → **"Run"**
+4. Configure:
+   - **Port**: `5000:5000`
+   - **Name**: `mask-detector`
+   - **Detached**: ✅
+
+#### **Step 3: Monitor Using VS Code**
+1. Go to Docker panel → "Containers"
+2. Right-click your container:
+   - **"View Logs"** - See application logs
+   - **"Attach Shell"** - Open bash inside container
+   - **"Inspect"** - View container details
+
+### 🎮 VS Code Docker Commands You Can Try:
+
+```bash
+# These work in VS Code Command Palette (Ctrl+Shift+P):
+
+Docker: Build Image              # Build from Dockerfile
+Docker: Run                      # Run container with options
+Docker: Compose Up               # Start docker-compose services
+Docker: Attach Shell             # Open terminal in container
+Docker: View Logs                # Show container logs
+Docker: Remove Container         # Delete container
+Docker: Remove Image             # Delete image
+Docker: Prune System             # Clean up unused resources
+```
+
+### 📊 Visual Container Management:
+
+#### **Container Status Indicators**:
+- 🟢 **Green**: Container running
+- ⚫ **Gray**: Container stopped
+- 🔴 **Red**: Container error
+
+#### **Quick Actions**:
+- **Start/Stop**: Click play/stop buttons
+- **Restart**: Right-click → Restart
+- **Remove**: Right-click → Remove
+- **Logs**: Right-click → View Logs
+
+### 🔧 Dockerfile IntelliSense:
+
+The extension provides:
+- **Syntax highlighting** for Dockerfiles
+- **Auto-completion** for Docker commands
+- **Hover help** for Docker instructions
+- **Error detection** and suggestions
+
+## 🎯 Complete Step-by-Step Walkthrough
+
+### **Phase 1: Setup (Do This First!)**
+
+#### **Step 1: Start Docker Desktop**
+```bash
+# Option 1: Windows Start Menu
+# Search "Docker Desktop" → Click to start
+
+# Option 2: PowerShell command
+Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+```
+
+#### **Step 2: Wait for Docker to Start**
+- Look for the Docker whale icon in your system tray
+- Wait until it shows "Docker Desktop is running"
+- This may take 1-2 minutes on first startup
+
+#### **Step 3: Verify Docker is Ready**
+```bash
+# Test Docker is working
+docker run hello-world
+
+# Check Docker version
+docker --version
+
+# View Docker system info
+docker info
+```
+
+### **Phase 2: Build Your Model Container**
+
+#### **Step 4: Build Using VS Code (Recommended)**
+1. **Open Docker Panel**: Click Docker icon in VS Code Explorer
+2. **Open Dockerfile**: Navigate to `deployment/Dockerfile`
+3. **Right-click** in Dockerfile → **"Build Image..."**
+4. **Enter tag**: `face-mask-detector:latest`
+5. **Watch progress** in VS Code terminal
+
+#### **Step 5: Alternative - Build Using Terminal**
+```bash
+# Navigate to project root
+cd c:\Users\wwmsf\Desktop\face-mask-detection-mlops
+
+# Build the image (takes 5-10 minutes first time)
+docker build -f deployment/Dockerfile -t face-mask-detector:latest .
+```
+
+### **Phase 3: Run Your Container**
+
+#### **Step 6: Run Using VS Code**
+1. **Docker Panel** → **Images** → Find `face-mask-detector:latest`
+2. **Right-click** → **"Run"**
+3. **Configure**:
+   - Port: `5000:5000`
+   - Name: `mask-detector`
+   - Detached: ✅
+
+#### **Step 7: Alternative - Run Using Terminal**
+```bash
+# Run the container
+docker run -d --name mask-detector -p 5000:5000 face-mask-detector:latest
+```
+
+### **Phase 4: Test Your Containerized Model**
+
+#### **Step 8: Access Your Application**
+```bash
+# Open in browser or test with curl:
+# Web App: http://localhost:5000
+# Health Check: http://localhost:5000/health
+
+# Test health endpoint
+curl http://localhost:5000/health
+```
+
+#### **Step 9: Monitor Using VS Code**
+1. **Docker Panel** → **Containers**
+2. **Right-click** `mask-detector`:
+   - **"View Logs"** - See application output
+   - **"Attach Shell"** - Open terminal in container
+   - **"Inspect"** - View container details
+
+### **Phase 5: Full Stack with Docker Compose**
+
+#### **Step 10: Start Complete MLOps Stack**
+```bash
+# Start Web App + MLflow + Monitoring
+docker-compose up -d
+
+# View all services
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+```
+
+#### **Step 11: Access All Services**
+- **Face Mask Detection API**: http://localhost:5000
+- **MLflow Tracking**: http://localhost:5001  
+- **Health Check**: http://localhost:5000/health
+- **API Documentation**: http://localhost:5000/docs (if available)
+
+## 🎮 Your Next Actions:
+
+### **Immediate Steps:**
+1. ✅ **Start Docker Desktop** (we just did this)
+2. ⏳ **Wait 1-2 minutes** for Docker to fully start
+3. 🏗️ **Build your image** using VS Code or terminal
+4. 🚀 **Run your container**
+5. 🌐 **Test at http://localhost:5000**
+
+### **Expected Results:**
+- ✅ Docker Desktop running in system tray
+- ✅ Container built successfully 
+- ✅ Web app accessible at localhost:5000
+- ✅ Health check returns success
+- ✅ Model predictions working
+
+### **If You Encounter Issues:**
+1. **Check Docker Desktop is running** (whale icon in tray)
+2. **Restart Docker Desktop** if needed
+3. **Check the troubleshooting section** below
+4. **Use VS Code Docker panel** for visual debugging
