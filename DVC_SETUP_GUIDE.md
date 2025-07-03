@@ -10,6 +10,19 @@ Data Version Control (DVC) is used to track and version our datasets, models, an
 python -m pip install dvc[all]  # Full installation with all remote storage support
 ```
 
+### VS Code Extension (Recommended)
+For a better DVC experience in VS Code, install the official DVC extension:
+- **Extension ID**: `iterative.dvc`
+- **Features**:
+  - Visual DVC pipeline management
+  - Interactive experiment tracking
+  - Data and model versioning UI
+  - Pipeline visualization
+  - Integrated DVC commands
+  - Real-time status updates
+
+**Installation**: Extension is already installed in your workspace!
+
 ### Initialize DVC
 ```bash
 python -m dvc init
@@ -267,3 +280,58 @@ DVC integrates seamlessly with Git:
 - Data lineage is preserved across Git commits
 
 This setup ensures our Professional Face Mask Detection project has enterprise-grade data and model versioning capabilities.
+
+## Using the DVC Extension in VS Code
+
+### Key Features
+With the DVC extension installed, you now have access to:
+
+#### 1. **DVC Panel in Explorer**
+- View DVC tracked files with status indicators
+- See which files are in cache vs remote storage
+- Track changes to `.dvc` files visually
+
+#### 2. **Pipeline Visualization**
+- Visual representation of your DVC pipeline
+- Dependency graph showing data flow
+- Interactive pipeline execution
+
+#### 3. **Experiment Tracking**
+- Compare different model versions
+- View metrics and parameters side-by-side
+- Track experiment history
+
+#### 4. **Commands Integration**
+Access DVC commands directly from VS Code:
+- `Ctrl+Shift+P` → "DVC: Show Commands"
+- Common commands available in Command Palette:
+  - `DVC: Pull` - Pull data from remote
+  - `DVC: Push` - Push data to remote
+  - `DVC: Status` - Check status
+  - `DVC: Reproduce` - Run pipeline
+  - `DVC: Add` - Track new files
+
+#### 5. **Status Indicators**
+Files tracked by DVC show status indicators:
+- 🟢 **Synced**: File is up to date with remote
+- 🟡 **Modified**: File has been changed locally
+- 🔴 **Missing**: File exists in DVC but not locally
+- ⚫ **Not in cache**: File needs to be pulled
+
+### Quick Actions
+Right-click on any `.dvc` file to:
+- Pull from remote storage
+- Push to remote storage
+- View file information
+- Compare versions
+
+### Pipeline Management
+1. **View Pipeline**: Open Command Palette → "DVC: Show Plots"
+2. **Run Stages**: Click on pipeline nodes to execute specific stages
+3. **Compare Experiments**: Use the experiments panel to compare results
+
+### Troubleshooting with Extension
+The extension provides better error messages and debugging:
+- Hover over DVC files to see status details
+- View logs in the Output panel (DVC channel)
+- Get notifications about DVC operations
