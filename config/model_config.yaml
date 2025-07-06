@@ -1,0 +1,87 @@
+augmentation:
+  auto_augment: randaugment
+  close_mosaic: 10
+  copy_paste: 0.0
+  degrees: 0.0
+  erasing: 0.4
+  fliplr: 0.5
+  flipud: 0.0
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+  mixup: 0.0
+  mosaic: 1.0
+  perspective: 0.0
+  scale: 0.5
+  shear: 0.0
+  translate: 0.1
+data:
+  augment: true
+  cache: false
+  fraction: 1.0
+  rect: false
+  single_cls: false
+  test_split: 0.1
+  train_split: 0.8
+  val_split: 0.1
+inference:
+  agnostic_nms: false
+  conf: 0.25
+  iou: 0.7
+  line_width: null
+  max_det: 300
+  retina_masks: false
+  save_conf: false
+  save_crop: false
+  show_boxes: true
+  show_conf: true
+  show_labels: true
+loss_weights:
+  box: 7.5
+  cls: 0.5
+  dfl: 1.5
+  kobj: 1.0
+  pose: 12.0
+mlops:
+  auto_retrain: false
+  drift_detection: true
+  model_registry: mlflow
+  model_summary:
+    gflops: 28.7
+    gradients: 11136745
+    layers: 129
+    parameters: 11136761
+  monitoring_enabled: true
+  ultralytics_version: 8.3.161
+model:
+  architecture: YOLOv8s
+  classes:
+  - with_mask
+  - without_mask
+  - mask_weared_incorrect
+  confidence_threshold: 0.5
+  input_size: 640
+  iou_threshold: 0.7
+  max_det: 300
+  nc: 3
+project:
+  description: Professional MLOps pipeline for face mask detection using YOLOv8s
+  name: face-mask-detection-mlops
+  version: 1.0.0
+training:
+  amp: true
+  batch_size: 16
+  deterministic: true
+  epochs: 35
+  lr0: 0.01
+  lrf: 0.01
+  momentum: 0.937
+  nbs: 64
+  optimizer: auto
+  patience: 15
+  save_period: -1
+  seed: 0
+  warmup_epochs: 3.0
+  warmup_momentum: 0.8
+  weight_decay: 0.0005
+  workers: 8

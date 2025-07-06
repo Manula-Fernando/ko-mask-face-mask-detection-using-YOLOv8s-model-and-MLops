@@ -1,69 +1,217 @@
 # config/config.yaml
+# Face Mask Detection MLOps Pipeline Configuration
+
+# Data paths and directories
 paths:
   raw_data_zip: "data/raw/images.zip"
   unzip_dir: "data/raw/temp_unzip"
   images_dir: "data/raw/images"
   annotations_dir: "data/raw/annotations"
-  train_dir: "data/processed/train"
-  val_dir: "data/processed/val"
-  test_dir: "data/processed/test"
+  train_dir: "data/processed/yolo_dataset/train"
+  val_dir: "data/processed/yolo_dataset/val"
+  test_dir: "data/processed/yolo_dataset/test"
+  collected_dir: "data/collected"
+  yolo_dataset_dir: "data/processed/yolo_dataset"
   models_dir: "models"
-  model_name: "mask_detector.h5"
+  model_name: "best.pt"
   reports_dir: "reports"
   mlflow_uri: "mlruns"
   haarcascade: "models/haarcascade_frontalface_default.xml"
+  temp_uploads: "temp_uploads"
+  detections_output: "detections"
+  logs_dir: "logs"
 
+# Data configuration
 data:
-  image_size: [224, 224]
-  batch_size: 32
+  image_size: [640, 640] # YOLOv8 input size
+  batch_size: 16
   classes:
-    - 'with_mask'
-    - 'without_mask'
-    - 'mask_weared_incorrect'
+    - "with_mask"
+    - "without_mask"
+    - "mask_weared_incorrect"
   class_mapping:
-    'with_mask': 0
-    'without_mask': 1
-    'mask_weared_incorrect': 2
+    "with_mask": 0
+    "without_mask": 1
+    "mask_weared_incorrect": 2
   validation_split: 0.2
   test_split: 0.1
+  augmentation:
+    enabled: true
+    rotation: 15
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+    fliplr: 0.5 # Horizontal flip probability
+    flipud: 0.0 # Vertical flip probability
+    mosaic: 1.0 # Mosaic augmentation probability
+    mixup: 0.0 # Mixup augmentation probability
+    copy_paste: 0.0 # Copy-paste augmentation probability
+    auto_augment: "randaugment" # Auto augmentation policy
+    erasing: 0.4 # Random erasing probability
+    perspective: 0.0 # Perspective transform
+    scale: 0.5 # Scale augmentation
+    shear: 0.0 # Shear augmentation
+    translate: 0.1 # Translation augmentation
 
+# Model configuration
 model:
-  input_shape: [224, 224, 3]
+  name: "face_mask_detector"
+  type: "yolov8"
+  base_model: "yolov8n.pt" # nano, small, medium, large, extra_large
+  input_shape: [640, 640, 3]
   num_classes: 3
-  dropout_rate: 0.5
-  
-# Training Configuration (keeping original hyperparameters)
+  confidence_threshold: 0.5
+  iou_threshold: 0.45
+  path: "models/yolov8_real_face_mask_detection/weights/best.pt"
+  stage: "Production"
+
+# Training Configuration
 training:
-  epochs: 30
-  batch_size: 32
-  learning_rate: 0.0001
-  patience: 10
-  monitor: 'val_accuracy'
-  
+  epochs: 100
+  batch_size: 16
+  learning_rate: 0.01
+  patience: 15
+  monitor: "val_loss"
+  save_period: 10
+  workers: 4
+  device: "auto" # 'auto', 'cpu', 'cuda', 'mps'
+  imgsz: 640
+  optimizer: "auto" # 'SGD', 'Adam', 'AdamW', 'auto'
+  amp: true # Automatic Mixed Precision
+  deterministic: true
+  lr0: 0.01 # Initial learning rate
+  lrf: 0.01 # Final learning rate fraction
+  momentum: 0.937
+  warmup_epochs: 3.0
+  warmup_momentum: 0.8
+  weight_decay: 0.0005
+  loss_weights:
+    box: 7.5
+    cls: 0.5
+    dfl: 1.5
+
+# Inference Configuration
+inference:
+  confidence_threshold: 0.5
+  iou_threshold: 0.45
+  max_detections: 300
+  agnostic_nms: false
+  output_dir: "detections"
+  save_results: true
+  save_txt: false
+  save_conf: true
+  retina_masks: false # Use high-resolution masks
+  save_crop: false # Save cropped predictions
+  show_boxes: true # Show bounding boxes
+  show_conf: true # Show confidence scores
+  show_labels: true # Show class labels
+  line_width: null # Auto line width
+
 # MLflow Configuration
 mlflow:
-  experiment_name: "face_mask_detection"
-  run_name_prefix: "mask_detector"
+  experiment_name: "face_mask_detection_yolo"
+  run_name_prefix: "yolo_mask_detector"
   tracking_uri: "http://localhost:5000"
   artifact_location: "./mlruns"
-  
+  model_name: "face_mask_detector"
+  registered_model_stage: "Production"
+  auto_log: true
+  log_models: true
+
 # Monitoring Configuration
 monitoring:
-  drift_threshold: 0.1
-  performance_threshold: 0.85
+  collection_interval: 60 # seconds
+  metrics_db: "logs/metrics.db"
+  drift_detection:
+    enabled: true
+    ks_threshold: 0.05
+    wasserstein_threshold: 0.1
+    psi_threshold: 0.2
+    reference_data_path: "logs/reference_data.pkl"
+    check_interval: 3600 # seconds (1 hour)
+  system_monitoring:
+    cpu_threshold: 80.0
+    memory_threshold: 85.0
+    disk_threshold: 90.0
+    response_time_threshold: 2.0 # seconds
+  performance_threshold: 0.8
+  confidence_threshold: 0.5
   log_predictions: true
-  alert_email: "wwmsfernando@gmail.com"
-  
-# Deployment Configuration
-deployment:
-  model_stage: "Production"
-  api_host: "0.0.0.0"
-  api_port: 8080
+  dashboard_refresh: 30 # seconds
+  default_time_range: 24 # hours
+  metrics_retention_days: 30
+  drift_reference_update_days: 7
+  alerts:
+    enable_email_alerts: false
+    enable_webhook_alerts: false
+    enable_slack_alerts: false
+    email:
+      smtp_server: "smtp.gmail.com"
+      smtp_port: 587
+      username: "your-email@gmail.com"
+      password: "your-app-password"
+      recipients: ["admin@company.com"]
+    webhook:
+      url: "https://your-webhook-url.com/alerts"
+      headers:
+        Authorization: "Bearer your-token"
+    slack:
+      webhook_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+
+# API Configuration
+api:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1
   max_batch_size: 10
   timeout: 30
-  
+  cors_origins: ["*"]
+  enable_docs: true
+
+# Deployment Configuration
+deployment:
+  environment: "development" # development, staging, production
+  docker:
+    image_name: "face-mask-detector"
+    tag: "latest"
+    port: 8000
+  kubernetes:
+    namespace: "face-mask-detection"
+    replicas: 3
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+
 # Logging Configuration
 logging:
   level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   file: "logs/app.log"
+  max_file_size: "10MB"
+  backup_count: 5
+  console_output: true
+
+# Security Configuration
+security:
+  api_key_required: false
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 60
+  cors:
+    allow_origins: ["*"]
+    allow_methods: ["GET", "POST"]
+    allow_headers: ["*"]
+
+# Feature flags
+features:
+  enable_real_time_detection: true
+  enable_batch_processing: true
+  enable_model_versioning: true
+  enable_drift_detection: true
+  enable_auto_retraining: false
+  enable_a_b_testing: false

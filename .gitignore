@@ -1,177 +1,54 @@
-# Byte-compiled / optimized / DLL files
+# DVC ignore file for Face Mask Detection MLOps
+
+# Python cache and venvs
 __pycache__/
-*.py[cod]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-.python-version
-
-# celery beat schedule file
-celerybeat-schedule
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.venv
-env/
+*.pyc
+*.pyo
+*.pyd
 venv/
-ENV/
-env.bak/
-venv.bak/
-face_mask_detection_venv/
+env/
+.venv/
 
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# MLflow
-mlruns/
-mlartifacts/
-
-# Model files
-*.h5
-*.pkl
-*.joblib
-*.onnx
-*.pb
-
-# Data files
-*.csv
-*.json
-*.parquet
-*.feather
-
-# Image files (except examples)
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.bmp
-*.tiff
-!examples/*.jpg
-!examples/*.jpeg
-!examples/*.png
-
-# Video files
-*.mp4
-*.avi
-*.mov
-*.mkv
-
-# Temporary files
-*.tmp
-*.temp
-.DS_Store
-Thumbs.db
-
-# IDE files
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# OS files
+# Logs and temp
+logs/
+*.log
+tmp/
+temp/
+.tmp/
+*.tmp
+*.bak
+*.old
+
+# Test and dev files
+tests/
+*_test.py
+test_*.py
+requirements-dev.txt
+
+# Documentation and markdown (ignore docs, but keep main README)
+docs/
+# *.md  # Uncomment if you want to ignore all markdown files
+# README.md  # Do NOT ignore this unless you want to
+
+# OS and backup files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# Project specific
-logs/
-temp/
-cache/
-high_confidence_detections/
-*.log
-requirements_full.txt
+# Security and secrets
+.env
+.env.*
+secrets/
+
+# MLflow and pipeline artifacts
+mlruns/
+mlflow.db
+
+# Notebooks (if not tracked)
+notebooks/development/
+*.ipynb

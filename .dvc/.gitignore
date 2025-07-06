@@ -1,3 +1,48 @@
 /config.local
 /tmp
 /cache
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# DVC cache and lock files
+.dvc/cache/
+.dvc/tmp/
+.dvc/plots/
+
+# Environment and virtualenv
+.env
+.venv/
+venv/
+
+# Logs
+logs/
+*.log
+
+# Data outputs (if not tracked by DVC)
+data/processed/
+data/tmp/
+
+# Model outputs (if not tracked by DVC)
+models/
+
+# MLflow tracking (if not tracked by DVC)
+mlruns/
+
+# Docker
+*.pid
+*.sock
+
+# VSCode and editor settings
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db

@@ -1,58 +1,54 @@
-# DVC Pipeline for Professional Face Mask Detection MLOps
-
 stages:
   data_preprocessing:
-    cmd: python src/data_preprocessing.py
+    cmd: python src/training/data_processing.py
     deps:
-      - src/data_preprocessing.py
+      - src/training/data_processing.py
       - data/raw/images/
       - config/config.yaml
     outs:
-      - data/processed/splits/
-    metrics:
-      - data/processed/data_stats.json
-    
+      - data/processed/yolo_dataset/
+
   model_training:
-    cmd: python src/model_training.py
+    cmd: python src/training/model.py
     deps:
-      - src/model_training.py
-      - data/processed/splits/
+      - src/training/model.py
+      - data/processed/yolo_dataset/
       - config/config.yaml
     outs:
-      - models/best_mask_detector_imbalance_optimized.h5
+      - models/yolov8_real_face_mask_detection/weights/best.pt
     metrics:
-      - models/training_metrics.json
+      - models/yolov8_real_face_mask_detection/training_metrics.json
     plots:
-      - models/training_plots.json
-      
+      - models/yolov8_real_face_mask_detection/training_plots.json
+
   model_evaluation:
-    cmd: python src/predict.py --evaluate
+    cmd: python src/inference/predictor.py --evaluate
     deps:
-      - src/predict.py
-      - models/best_mask_detector_imbalance_optimized.h5
-      - data/processed/splits/test/
+      - src/inference/predictor.py
+      - models/yolov8_real_face_mask_detection/weights/best.pt
+      - data/processed/yolo_dataset/test/images/
+      - data/processed/yolo_dataset/test/labels/
       - config/config.yaml
     metrics:
-      - models/evaluation_metrics.json
+      - models/yolov8_real_face_mask_detection/evaluation_metrics.json
     plots:
-      - models/evaluation_plots.json
+      - models/yolov8_real_face_mask_detection/evaluation_plots.json
 
 plots:
-  - models/training_plots.json:
+  - models/yolov8_real_face_mask_detection/training_plots.json:
       x: epoch
       y:
         - accuracy
         - val_accuracy
         - loss
         - val_loss
-      title: "Professional Face Mask Detection - Training History"
-      
-  - models/training_history.json:
-      x: epoch  
+      title: "YOLOv8 Face Mask Detection - Training History"
+  - models/yolov8_real_face_mask_detection/training_history.json:
+      x: epoch
       y:
         - loss
         - val_loss
       title: "Training History - Loss"
 
 params:
-- config/config.yaml
+  - config/config.yaml
