@@ -52,3 +52,11 @@ mlflow.db
 # Notebooks (if not tracked)
 notebooks/development/
 *.ipynb
+
+face_mask_detection_venv/
+*.pyc
+__pycache__/
+data/
+models/
+mlruns/
+*.log
