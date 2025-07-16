@@ -36,7 +36,7 @@ class TrainingConfig:
     
     # Model configuration
     model_name: str = "yolov8s.pt"
-    epochs: int = 100
+    epochs: int = 35
     batch_size: int = 16
     image_size: int = 640
     
@@ -63,3 +63,33 @@ class MonitoringConfig:
     alert_threshold: float = 0.1  # Model performance degradation threshold
     data_drift_threshold: float = 0.05
     monitoring_interval: int = 3600  # seconds
+
+@dataclass
+class DriftDetectionConfig:
+    """Drift detection configuration"""
+    reference_data_path: str = "../data/processed/reference"
+    current_data_path: str = "../data/collected/current"
+    output_dir: str = "../reports/drift_analysis"
+    drift_detection_method: str = "ks_test"
+
+def load_config(config_type: str = "inference") -> object:
+    """
+    Load and return the specified configuration class.
+    Args:
+        config_type (str): One of "project", "training", "inference", "monitoring", "drift".
+    Returns:
+        An instance of the requested configuration dataclass.
+    """
+    if config_type == "project":
+        return ProjectConfig()
+    elif config_type == "training":
+        return TrainingConfig()
+    elif config_type == "inference":
+        return InferenceConfig()
+    elif config_type == "monitoring":
+        return MonitoringConfig()
+    elif config_type == "drift":
+        return DriftDetectionConfig()
+    else:
+        raise ValueError(f"Unknown config_type: {config_type}")
+

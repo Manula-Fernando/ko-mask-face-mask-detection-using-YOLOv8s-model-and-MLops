@@ -1,0 +1,177 @@
+# retraining-cd.yml: Main retraining and deployment pipeline for Face Mask Detection
+# Collects all data from data/collected/, merges and splits into data/processed/yolo_dataset, retrains, evaluates, and deploys.
+# Use this as your main MLOps workflow.
+
+name: Face Mask Detection MLOps - Retraining & CD
+
+on:
+  schedule:
+    - cron: "0 2 * * 0"
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_retrain:
+        description: "Force model retraining"
+        required: false
+        default: "false"
+        type: boolean
+
+env:
+  MODEL_REGISTRY: "mlflow"
+  PYTHON_VERSION: "3.10"
+
+jobs:
+  # Stage 1: Data Collection and Processing
+  data-collection:
+    runs-on: ubuntu-latest
+    outputs:
+      new-samples: ${{ steps.count.outputs.samples }}
+      data-ready: ${{ steps.validate.outputs.ready }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install google-cloud-storage boto3
+      - name: Configure cloud storage
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          echo "$GOOGLE_CREDENTIALS" > gcp-key.json
+          export GOOGLE_APPLICATION_CREDENTIALS="gcp-key.json"
+      - name: Collect data from API predictions
+        run: |
+          python scripts/collect_api_predictions.py \
+            --detections-dir detections \
+            --output collected_data/api_predictions \
+            --days-back 7 \
+            --min-confidence 0.8
+      - name: Collect webcam captures
+        run: |
+          python scripts/collect_webcam_data.py \
+            --webcam-dir webcam_captures \
+            --output collected_data/webcam_captures \
+            --days-back 7
+      - name: Download from cloud storage
+        run: |
+          python scripts/download_cloud_data.py \
+            --google-drive collected_data/google_drive \
+            --aws-s3 collected_data/aws_s3 \
+            --bucket-name face-mask-training-data
+      - name: Process and validate collected data
+        run: |
+          python scripts/process_collected_data.py \
+            --input-dirs collected_data/api_predictions collected_data/webcam_captures collected_data/google_drive collected_data/aws_s3 \
+            --output collected_data/processed \
+            --auto-annotate \
+            --quality-filter \
+            --remove-duplicates
+      - name: Merge all collected data for YOLO training
+        run: |
+          set -e
+          python scripts/merge_datasets.py \
+            --existing data/processed/yolo_dataset \
+            --new data/collected \
+            --output data/processed/yolo_dataset \
+            --train-split 0.8 \
+            --val-split 0.1 \
+            --test-split 0.1
+      - name: Count new training samples
+        id: count
+        run: |
+          samples=$(python scripts/count_samples.py --data-dir data/processed/yolo_dataset)
+          echo "samples=$samples" >> $GITHUB_OUTPUT
+          echo "New samples available: $samples"
+      - name: Validate data for training
+        id: validate
+        run: |
+          if [ "${{ steps.count.outputs.samples }}" -ge "100" ]; then
+            echo "ready=true" >> $GITHUB_OUTPUT
+            echo "✅ Sufficient data for retraining"
+          else
+            echo "ready=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Insufficient data for retraining"
+          fi
+      - name: Upload processed data
+        uses: actions/upload-artifact@v3
+        with:
+          name: training-data
+          path: data/processed/yolo_dataset/
+
+  # Stage 2: Model Training
+  train-model:
+    needs: data-collection
+    runs-on: ubuntu-latest
+    if: needs.data-collection.outputs.data-ready == 'true' || github.event.inputs.force_retrain == 'true'
+    outputs:
+      model-performance: ${{ steps.evaluate.outputs.performance }}
+      should-deploy: ${{ steps.validate.outputs.deploy }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Python and ML environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install ML dependencies
+        run: |
+          pip install ultralytics mlflow torch torchvision
+          pip install -r requirements.txt
+      - name: Download training data
+        uses: actions/download-artifact@v3
+        with:
+          name: training-data
+          path: data/processed/yolo_dataset/
+      - name: Train YOLOv8s model
+        run: |
+          python scripts/train_automated.py \
+            --data data/processed/yolo_dataset/dataset.yaml \
+            --model yolov8s.pt \
+            --epochs 50 \
+            --batch 16 \
+            --patience 15 \
+            --project models/staging \
+            --name "retrain-$(date +%Y%m%d)" \
+            --exist-ok \
+            --track-mlflow
+      - name: Evaluate model performance
+        id: evaluate
+        run: |
+          performance=$(python scripts/evaluate_trained_model.py \
+            --model models/staging/retrain-*/weights/best.pt \
+            --data data/processed/yolo_dataset/dataset.yaml \
+            --metric map50)
+          echo "performance=$performance" >> $GITHUB_OUTPUT
+          echo "Model mAP50: $performance"
+      - name: Compare with production model
+        id: validate
+        run: |
+          current_perf=$(python scripts/get_production_metrics.py --metric map50)
+          new_perf="${{ steps.evaluate.outputs.performance }}"
+          if (( $(echo "$new_perf > $current_perf + 0.01" | bc -l) )); then
+            echo "deploy=true" >> $GITHUB_OUTPUT
+            echo "✅ Model improved: $new_perf vs $current_perf"
+          else
+            echo "deploy=false" >> $GITHUB_OUTPUT
+            echo "❌ No significant improvement: $new_perf vs $current_perf"
+          fi
+      - name: Upload trained model
+        if: steps.validate.outputs.deploy == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: trained-model
+          path: models/staging/retrain-*/weights/best.pt
+# ...rest of the workflow (testing, deployment, monitoring) remains unchanged...

@@ -1,170 +1,117 @@
+#!/usr/bin/env python3
 """
-Quick Start Script for Face Mask Detection MLOps Project
-Simplified deployment for development and testing
+Face Mask Detection System - Quick Start
+General launcher for development, demo, or non-medical use.
 """
 
 import os
 import sys
-import subprocess
 import time
+import subprocess
 from pathlib import Path
+import socket
+
+
+PROJECT_ROOT = Path(__file__).parent.parent
+os.chdir(PROJECT_ROOT)
+
+def is_port_in_use(port: int) -> bool:
+    """Check if a port is already in use."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) == 0
+
+def print_header():
+    print("\n" + "=" * 60)
+    print("😷 Face Mask Detection System - Quick Start")
+    print("=" * 60)
+    print("🔬 General Detection • Real Data Only")
+    print("=" * 60)
 
 def check_dependencies():
-    """Check if all required dependencies are available"""
-    print("🔍 Checking dependencies...")
-    
-    required_packages = [
-        'flask', 'tensorflow', 'numpy', 'opencv-python',
-        'mlflow', 'pandas', 'scikit-learn'
-    ]
-    
-    missing_packages = []
-    
-    for package in required_packages:
-        try:
-            __import__(package.replace('-', '_'))
-            print(f"  ✅ {package}")
-        except ImportError:
-            missing_packages.append(package)
-            print(f"  ❌ {package}")
-    
-    if missing_packages:
-        print(f"\n❌ Missing packages: {', '.join(missing_packages)}")
-        print("Install with: pip install -r requirements.txt")
+    """Check if required dependencies exist"""
+    print("🔍 Checking system dependencies...")
+    predictor_path = PROJECT_ROOT / "src" / "inference" / "predictor.py"
+    if not predictor_path.exists() or predictor_path.stat().st_size == 0:
+        print("❌ Error: Predictor not found or empty!")
         return False
-    
-    print("✅ All dependencies satisfied")
+    print("✅ Predictor module: OK")
+    model_paths = [
+        PROJECT_ROOT / "models" / "best.pt",
+        PROJECT_ROOT / "models" / "yolov8_real_face_mask_detection" / "weights" / "best.pt",
+        PROJECT_ROOT / "runs" / "detect" / "train" / "weights" / "best.pt"
+    ]
+    model_found = any(p.exists() for p in model_paths)
+    if model_found:
+        print("✅ YOLO model: OK")
+    else:
+        print("⚠️  No trained model found, will use pretrained fallback")
     return True
 
-def check_model():
-    """Check if the trained model exists"""
-    print("🔍 Checking model files...")
-    
-    model_paths = [
-        "models/best_mask_detector_imbalance_optimized.h5",
-        "models/best_mask_detector_enhanced_mlflow.h5"
-    ]
-    
-    for model_path in model_paths:
-        if Path(model_path).exists():
-            print(f"  ✅ Found model: {model_path}")
-            return True
-    
-    print("  ❌ No trained model found")
-    print("     Run training script first: python src/model_training.py")
-    return False
-
-def setup_directories():
-    """Create necessary directories"""
-    print("📁 Setting up directories...")
-    
-    directories = [
-        "logs", "temp_uploads", "reports", 
-        "reports/drift_analysis", "mlruns"
-    ]
-    
-    for directory in directories:
-        Path(directory).mkdir(parents=True, exist_ok=True)
-        print(f"  ✅ {directory}")
-
-def run_quick_test():
-    """Run a quick test of the system"""
-    print("🧪 Running quick system test...")
-    
+def start_service(cmd, name, port=None):
+    """Start a service and return process, with port check."""
+    if port and is_port_in_use(port):
+        print(f"❌ {name} port {port} already in use. Please free the port and try again.")
+        return None
+    print(f"🚀 Starting {name}...")
     try:
-        # Test model loading
-        import tensorflow as tf
-        model_path = "models/best_mask_detector_imbalance_optimized.h5"
-        if Path(model_path).exists():
-            model = tf.keras.models.load_model(model_path)
-            print("  ✅ Model loads successfully")
-            print(f"  📊 Model parameters: {model.count_params():,}")
-        else:
-            print("  ⚠️ No model to test")
-        
-        # Test monitoring system
-        sys.path.append('scripts')
-        from model_monitoring import ModelMonitor
-        monitor = ModelMonitor(db_path="logs/test_monitoring.db")
-        print("  ✅ Monitoring system initializes")
-        
-        print("✅ System test passed")
-        return True
-        
+        process = subprocess.Popen(cmd, shell=True, cwd=PROJECT_ROOT)
+        if port:
+            time.sleep(3)
+        return process
     except Exception as e:
-        print(f"  ❌ System test failed: {e}")
+        print(f"❌ Failed to start {name}: {e}")
+        return None
+
+def launch_app(choice):
+    """Launch specific application based on user choice."""
+    if choice.lower() == 'w':
+        print("🎥 Launching webcam detector...")
+        try:
+            sys.path.append(str(PROJECT_ROOT / "src"))
+            from inference.predictor import FaceMaskPredictor
+            print("✅ Predictor module loaded successfully")
+            webcam_cmd = f'"{sys.executable}" src/realtime_webcam_app.py'
+            subprocess.run(webcam_cmd, shell=True, cwd=PROJECT_ROOT)
+        except ImportError as e:
+            print(f"❌ Could not import FaceMaskPredictor. Details: {e}")
+            print("Please ensure src/inference/predictor.py exists and is properly configured.")
+    elif choice.lower() == 'd':
+        print("📊 Launching monitoring dashboard...")
+        dashboard_cmd = f'"{sys.executable}" -m streamlit run src/monitoring/dashboard.py --server.port 8501 --server.headless true'
+        start_service(dashboard_cmd, "Dashboard", port=8501)
+    elif choice.lower() == 'a':
+        print("🌐 Launching API interface...")
+        api_cmd = f'"{sys.executable}" -m uvicorn src.inference.api:app --reload --host 0.0.0.0 --port 8001'
+        start_service(api_cmd, "API", port=8001)
+    elif choice.lower() == 'q':
+        print("👋 Shutting down system...")
         return False
-
-def start_services():
-    """Start the development services"""
-    print("🚀 Starting services...")
-    
-    # Start MLflow in background (optional)
-    print("  🔄 Starting MLflow server...")
-    try:
-        mlflow_process = subprocess.Popen([
-            "mlflow", "server",
-            "--backend-store-uri", "sqlite:///logs/mlflow.db",
-            "--default-artifact-root", "./mlruns",
-            "--host", "127.0.0.1",
-            "--port", "5001"
-        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        
-        print("  ✅ MLflow server started on http://localhost:5001")
-        time.sleep(3)  # Give MLflow time to start
-    except Exception as e:
-        print(f"  ⚠️ MLflow server failed to start: {e}")
-        print("     You can still use the API without MLflow")
-    
-    # Start the main Flask application
-    print("  🔄 Starting Face Mask Detection API...")
-    try:
-        print("\n" + "="*60)
-        print("🎭 FACE MASK DETECTION - DEVELOPMENT SERVER")
-        print("="*60)
-        print("🌐 Web Application: http://localhost:5000")
-        print("📊 MLflow Tracking: http://localhost:5001")
-        print("❤️ Health Check: http://localhost:5000/health")
-        print("📈 Monitoring: http://localhost:5000/monitoring/dashboard")
-        print("="*60)
-        print("Press Ctrl+C to stop the server")
-        print("="*60)
-        
-        # Run the Flask app
-        subprocess.run([sys.executable, "app/main.py"], check=True)
-        
-    except KeyboardInterrupt:
-        print("\n🛑 Server stopped by user")
-    except Exception as e:
-        print(f"❌ Failed to start Flask app: {e}")
+    else:
+        print(f"❓ Unknown command: {choice}. Use: w=webcam, d=dashboard, a=api, q=quit")
+    return True
 
 def main():
-    """Main function"""
-    print("🎭 Face Mask Detection MLOps - Quick Start")
-    print("="*50)
-    
-    # Check dependencies
+    print_header()
     if not check_dependencies():
+        print("❌ System check failed. Please fix dependencies first.")
         return
-    
-    # Check model
-    if not check_model():
-        print("\n💡 To train a model, run:")
-        print("   python src/model_training.py")
-        return
-    
-    # Setup directories
-    setup_directories()
-    
-    # Run system test
-    if not run_quick_test():
-        print("⚠️ Some tests failed, but continuing...")
-    
-    print("\n✅ All checks passed!")
-    print("="*50)
-    
-    # Start services
-    start_services()
+    print("\nOptions:")
+    print("   w - 🎥 Webcam Detection (Real-time)")
+    print("   d - 📊 Monitoring Dashboard")
+    print("   a - 🌐 API Interface")
+    print("   q - 👋 Quit")
+    print()
+    while True:
+        try:
+            choice = input("Enter command (w/d/a/q): ").strip()
+            if not launch_app(choice):
+                break
+            print()
+        except KeyboardInterrupt:
+            print("\n👋 System shutdown requested")
+            break
+        except Exception as e:
+            print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
     main()

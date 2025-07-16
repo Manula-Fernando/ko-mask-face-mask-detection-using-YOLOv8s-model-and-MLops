@@ -1,0 +1,178 @@
+{
+  "timestamp": "2025-07-06T21:38:49.039649",
+  "summary": {
+    "total_features": 18,
+    "features_with_drift": 18,
+    "drift_percentage": 100.0,
+    "overall_recommendation": "High drift detected. Immediate retraining recommended."
+  },
+  "severity_breakdown": {
+    "high": 18
+  },
+  "feature_details": [
+    {
+      "feature": "std_hue",
+      "drift_detected": "True",
+      "drift_score": 0.9032258064516129,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "blue_mean",
+      "drift_detected": "True",
+      "drift_score": 0.8583095140873827,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "green_mean",
+      "drift_detected": "True",
+      "drift_score": 0.8583095140873827,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "mean_saturation",
+      "drift_detected": "True",
+      "drift_score": 0.9032258064516129,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "edge_density",
+      "drift_detected": "True",
+      "drift_score": 0.9228256431196407,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "image_size",
+      "drift_detected": "True",
+      "drift_score": 0.8387096774193549,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "red_std",
+      "drift_detected": "True",
+      "drift_score": 0.9228256431196407,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "contrast",
+      "drift_detected": "True",
+      "drift_score": 0.9228256431196407,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "mean_hue",
+      "drift_detected": "True",
+      "drift_score": 0.9032258064516129,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "aspect_ratio",
+      "drift_detected": "True",
+      "drift_score": 0.8064516129032258,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "mean_brightness",
+      "drift_detected": "True",
+      "drift_score": 0.9228256431196407,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "red_mean",
+      "drift_detected": "True",
+      "drift_score": 0.8905675786035117,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "std_saturation",
+      "drift_detected": "True",
+      "drift_score": 0.9032258064516129,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "std_brightness",
+      "drift_detected": "True",
+      "drift_score": 0.9228256431196407,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "texture_uniformity",
+      "drift_detected": "True",
+      "drift_score": 0.9228256431196407,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "green_std",
+      "drift_detected": "True",
+      "drift_score": 0.9228256431196407,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "blur_score",
+      "drift_detected": "True",
+      "drift_score": 0.9228256431196407,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    },
+    {
+      "feature": "blue_std",
+      "drift_detected": "True",
+      "drift_score": 0.8905675786035117,
+      "threshold": 0.05,
+      "severity": "high",
+      "recommendation": "Consider retraining model"
+    }
+  ],
+  "high_priority_features": [
+    "std_hue",
+    "blue_mean",
+    "green_mean",
+    "mean_saturation",
+    "edge_density",
+    "image_size",
+    "red_std",
+    "contrast",
+    "mean_hue",
+    "aspect_ratio",
+    "mean_brightness",
+    "red_mean",
+    "std_saturation",
+    "std_brightness",
+    "texture_uniformity",
+    "green_std",
+    "blur_score",
+    "blue_std"
+  ]
+}

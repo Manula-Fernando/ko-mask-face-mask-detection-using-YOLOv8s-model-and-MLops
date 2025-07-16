@@ -1,0 +1,116 @@
+version: "3.8"
+
+services:
+  # MLflow Tracking Server
+  mlflow:
+    image: python:3.9-slim
+    container_name: mlflow-server
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=sqlite:///mlflow/mlflow.db
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/mlruns
+    volumes:
+      - ../mlruns:/mlflow/mlruns
+      - ../data:/mlflow/data
+    command: >
+      bash -c "pip install mlflow && \
+      mkdir -p /mlflow/mlruns && \
+      mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow/mlflow.db --default-artifact-root /mlflow/mlruns"
+    networks:
+      - mlops-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Training Service
+  training-service:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.training
+    container_name: face-mask-training
+    ports:
+      - "8001:8001"
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - PYTHONPATH=/app
+    volumes:
+      - ../data:/app/data
+      - ../models:/app/models
+      - ../logs:/app/logs
+      - ../reports:/app/reports
+      - ../mlruns:/app/mlruns
+    depends_on:
+      - mlflow
+    networks:
+      - mlops-network
+    restart: unless-stopped
+
+  # Inference Service
+  inference-service:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.inference
+    container_name: face-mask-inference
+    ports:
+      - "8002:8002"
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - ../models:/app/models
+      - ../detections:/app/detections
+      - ../logs:/app/logs
+      - ../data:/app/data
+    depends_on:
+      - training-service
+    networks:
+      - mlops-network
+    restart: unless-stopped
+
+  # Monitoring Service
+  monitoring-service:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.monitoring
+    container_name: face-mask-monitoring
+    ports:
+      - "8003:8003"
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - ../data:/app/data
+      - ../logs:/app/logs
+      - ../reports:/app/reports
+    depends_on:
+      - inference-service
+    networks:
+      - mlops-network
+    restart: unless-stopped
+
+  # Data Drift Detection Service (API mode)
+  drift-detection:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.drift
+    container_name: face-mask-drift-detection
+    environment:
+      - SERVICE_TYPE=drift_detection
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - PYTHONPATH=/app
+    volumes:
+      - ../logs:/app/logs
+      - ../data:/app/data
+      - ../mlruns:/app/mlruns
+    depends_on:
+      - mlflow
+    ports:
+      - "8004:8004"
+    networks:
+      - mlops-network
+    restart: unless-stopped
+
+networks:
+  mlops-network:
+    driver: bridge

@@ -1,86 +1,67 @@
-# Dockerfile
-Dockerfile*
-.dockerignore
-
-# Git
+# Ignore version control
 .git
 .gitignore
 .gitattributes
 
-# Documentation
-README.md
-docs/
-*.md
-
-# Development files
+# Ignore IDE/editor configs
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Python cache
+# Ignore Python cache and test cache
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
 
-# Virtual environments
+# Ignore virtual environments
 venv/
 env/
+.venv/
 .env
 
-# Logs
+# Ignore logs and temp files
 *.log
 logs/
-
-# Temporary files
 tmp/
 temp/
 .tmp/
+*.tmp
+*.bak
+*.old
 
-# Test files
+# Ignore test files and test data
 tests/
 *_test.py
 test_*.py
 
-# Development dependencies
+# Ignore development dependencies
 requirements-dev.txt
 
-# MLflow runs (for production)
+# Ignore MLflow runs and local DB (but NOT requirements or config)
 mlruns/
 mlflow.db
 
-# Local development data
+# Ignore local development data (but NOT data/curated or data/collected)
 data/raw/
 notebooks/development/
 
-# IDE settings
-.editorconfig
-.flake8
-.pylintrc
-mypy.ini
-setup.cfg
-tox.ini
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Coverage reports
+# Ignore coverage reports
 htmlcov/
 .coverage
 .coverage.*
 
-# Security sensitive files
+# Ignore security sensitive files
 .env
 .env.local
 .env.production
 secrets/
 
-# Jupyter notebooks for development
+# Ignore Jupyter notebooks for development
 *.ipynb
 
-# Sample/demo files
+# Ignore sample/demo files
 examples/
 samples/
 demo/

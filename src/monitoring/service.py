@@ -16,14 +16,14 @@ import logging
 from threading import Thread, Event
 from dataclasses import dataclass, asdict
 import smtplib
-from email.mime.text import MimeText
-from email.mime.multipart import MimeMultipart
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import requests
 
 from ..common.logger import get_logger
 from ..common.utils import load_config
 from .metrics_collector import MetricsCollector, ModelMetrics, DataMetrics, SystemMetrics, BusinessMetrics
-from .drift_detector import DataDriftDetector, DriftResult
+from drift.drift_detector import DataDriftDetector
 
 logger = get_logger(__name__)
 

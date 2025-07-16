@@ -8,13 +8,11 @@ import json
 import logging
 import time
 import mlflow
-import mlflow.tensorflow
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Any, Tuple
-from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 import sqlite3
 import hashlib
 import threading
@@ -24,6 +22,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import warnings
+from numpy.typing import NDArray
+from dataclasses import dataclass
+
 warnings.filterwarnings('ignore')
 
 @dataclass
@@ -35,7 +36,7 @@ class PredictionLog:
     confidence: float
     processing_time: float
     model_version: str
-    user_feedback: str = None
+    user_feedback: Optional[str] = None
 
 @dataclass
 class ModelMetrics:
@@ -58,7 +59,7 @@ class ModelMonitor:
                  model_name: str = "face_mask_detector",
                  db_path: str = "logs/model_monitoring.db",
                  mlflow_uri: str = "http://localhost:5001",
-                 alert_thresholds: Dict[str, float] = None):
+                 alert_thresholds: Optional[Dict[str, float]] = None):
         
         self.model_name = model_name
         self.db_path = Path(db_path)
@@ -85,34 +86,27 @@ class ModelMonitor:
         # Load baseline metrics
         self.baseline_metrics = self.load_baseline_metrics()
         
-        self.logger.info("✅ Model monitoring system initialized")
+        self.logger.info("Model monitoring system initialized")
 
     def setup_logging(self):
-        """Configure comprehensive logging"""
+        """Configure comprehensive logging (prevents duplicate handlers)"""
         log_dir = Path("logs")
         log_dir.mkdir(exist_ok=True)
-        
-        # Create logger
         self.logger = logging.getLogger(f"{self.model_name}_monitor")
         self.logger.setLevel(logging.INFO)
-        
-        # File handler
-        file_handler = logging.FileHandler(log_dir / "model_monitoring.log")
-        file_handler.setLevel(logging.INFO)
-        
-        # Console handler
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        
-        # Formatter
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        file_handler.setFormatter(formatter)
-        console_handler.setFormatter(formatter)
-        
-        self.logger.addHandler(file_handler)
-        self.logger.addHandler(console_handler)
+        # Prevent duplicate handlers
+        if not self.logger.handlers:
+            file_handler = logging.FileHandler(log_dir / "model_monitoring.log", encoding="utf-8")
+            file_handler.setLevel(logging.INFO)
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.INFO)
+            formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            )
+            file_handler.setFormatter(formatter)
+            console_handler.setFormatter(formatter)
+            self.logger.addHandler(file_handler)
+            self.logger.addHandler(console_handler)
 
     def init_database(self):
         """Initialize SQLite database for logging"""
@@ -184,16 +178,17 @@ class ModelMonitor:
         try:
             mlflow.set_tracking_uri(self.mlflow_uri)
             mlflow.set_experiment("Face_Mask_Detection_Monitoring")
-            self.logger.info(f"✅ MLflow connected: {self.mlflow_uri}")
+            self.logger.info(f"MLflow connected: {self.mlflow_uri}")
         except Exception as e:
             self.logger.warning(f"MLflow setup failed: {e}")
+            self.logger.info("Continuing without MLflow tracking")
 
     def log_prediction(self, 
-                      input_data: np.ndarray,
+                      input_data: NDArray[Any],
                       prediction: str,
                       confidence: float,
                       processing_time: float,
-                      model_version: str = "v1.0"):
+                      model_version: str = "v1.0") -> None:
         """Log a single prediction with metadata"""
         
         # Create input hash for deduplication and tracking
@@ -225,17 +220,18 @@ class ModelMonitor:
             ))
             conn.commit()
         
-        # Log to MLflow
-        try:
-            with mlflow.start_run(run_name=f"prediction_{input_hash}", nested=True):
-                mlflow.log_metric("confidence", confidence)
-                mlflow.log_metric("processing_time", processing_time)
-                mlflow.log_param("prediction", prediction)
-                mlflow.log_param("model_version", model_version)
-        except Exception as e:
-            self.logger.warning(f"MLflow logging failed: {e}")
+        # Log to MLflow if available
+        if mlflow.active_run() or mlflow.get_tracking_uri():
+            try:
+                with mlflow.start_run(run_name=f"prediction_{input_hash}", nested=True):
+                    mlflow.log_metric("confidence", confidence)
+                    mlflow.log_metric("processing_time", processing_time)
+                    mlflow.log_param("prediction", prediction)
+                    mlflow.log_param("model_version", model_version)
+            except Exception as e:
+                self.logger.warning(f"MLflow logging failed: {e}")
 
-    def calculate_performance_metrics(self, period_hours: int = 24) -> ModelMetrics:
+    def calculate_performance_metrics(self, period_hours: int = 24) -> Optional[ModelMetrics]:
         """Calculate model performance metrics for a given period"""
         
         start_time = datetime.now() - timedelta(hours=period_hours)
@@ -251,15 +247,13 @@ class ModelMonitor:
         if df.empty:
             return None
         
-        # Calculate metrics (simplified - in production, you'd need ground truth)
         avg_confidence = df['confidence'].mean()
         prediction_count = len(df)
         
-        # For demonstration, we'll simulate some metrics
-        # In production, you'd compare with ground truth labels
-        accuracy = 0.85 + np.random.normal(0, 0.05)  # Simulated
-        precision = 0.83 + np.random.normal(0, 0.05)  # Simulated
-        recall = 0.87 + np.random.normal(0, 0.05)     # Simulated
+        # Simulated metrics (replace with real ground truth in production)
+        accuracy = 0.85 + np.random.normal(0, 0.05)
+        precision = 0.83 + np.random.normal(0, 0.05)
+        recall = 0.87 + np.random.normal(0, 0.05)
         f1 = 2 * (precision * recall) / (precision + recall)
         
         metrics = ModelMetrics(
@@ -272,7 +266,6 @@ class ModelMonitor:
             timestamp=datetime.now()
         )
         
-        # Store metrics
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -294,9 +287,9 @@ class ModelMonitor:
         return metrics
 
     def detect_data_drift(self, 
-                         current_data: np.ndarray,
-                         baseline_data: np.ndarray = None,
-                         feature_names: List[str] = None) -> Dict[str, Any]:
+                         current_data: NDArray[Any],
+                         baseline_data: Optional[NDArray[Any]] = None,
+                         feature_names: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Detect data drift using statistical tests
         """
@@ -309,7 +302,6 @@ class ModelMonitor:
         
         drift_results = {}
         
-        # If data is multidimensional, check each feature
         if len(current_data.shape) > 1:
             n_features = current_data.shape[1]
             feature_names = feature_names or [f"feature_{i}" for i in range(n_features)]
@@ -323,14 +315,21 @@ class ModelMonitor:
                 
                 is_drift = p_value < self.alert_thresholds['drift_p_value']
                 
+                # Corrected drift severity logic
+                if p_value < 0.01:
+                    drift_severity = 'high'
+                elif p_value < 0.05:
+                    drift_severity = 'medium'
+                else:
+                    drift_severity = 'low'
+                
                 drift_results[feature_name] = {
                     'ks_statistic': ks_stat,
                     'p_value': p_value,
                     'is_drift': is_drift,
-                    'drift_severity': 'high' if p_value < 0.01 else 'medium' if p_value < 0.05 else 'low'
+                    'drift_severity': drift_severity
                 }
                 
-                # Log to database
                 with sqlite3.connect(self.db_path) as conn:
                     cursor = conn.cursor()
                     cursor.execute('''
@@ -351,7 +350,7 @@ class ModelMonitor:
                 if is_drift:
                     self.trigger_alert(
                         "data_drift",
-                        "medium" if p_value < 0.05 else "high",
+                        drift_severity,
                         f"Data drift detected in {feature_name} (p-value: {p_value:.4f})"
                     )
         
@@ -360,7 +359,7 @@ class ModelMonitor:
     def trigger_alert(self, alert_type: str, severity: str, message: str):
         """Trigger an alert and log it"""
         
-        self.logger.warning(f"🚨 ALERT [{severity.upper()}] {alert_type}: {message}")
+        self.logger.warning(f"ALERT [{severity.upper()}] {alert_type}: {message}")
         
         # Store in database
         with sqlite3.connect(self.db_path) as conn:
@@ -386,16 +385,12 @@ class ModelMonitor:
         # Get recent metrics
         metrics = self.calculate_performance_metrics(hours)
         
-        # Get recent alerts
         with sqlite3.connect(self.db_path) as conn:
             alerts_df = pd.read_sql_query('''
                 SELECT * FROM alerts
                 WHERE timestamp >= ?
                 ORDER BY timestamp DESC
             ''', conn, params=[start_time.isoformat()])
-        
-        # Get prediction statistics
-        with sqlite3.connect(self.db_path) as conn:
             predictions_df = pd.read_sql_query('''
                 SELECT * FROM predictions
                 WHERE timestamp >= ?
@@ -414,9 +409,9 @@ class ModelMonitor:
             },
             'alerts': {
                 'total_alerts': len(alerts_df),
-                'critical_alerts': len(alerts_df[alerts_df['severity'] == 'critical']),
-                'warnings': len(alerts_df[alerts_df['severity'] == 'medium']),
-                'recent_alerts': alerts_df.head(5).to_dict('records')
+                'critical_alerts': len(alerts_df[alerts_df['severity'] == 'critical']) if not alerts_df.empty else 0,
+                'warnings': len(alerts_df[alerts_df['severity'] == 'medium']) if not alerts_df.empty else 0,
+                'recent_alerts': alerts_df.head(5).to_dict('records') if not alerts_df.empty else []
             },
             'predictions': {
                 'total_predictions': len(predictions_df),
@@ -438,7 +433,7 @@ class ModelMonitor:
             'avg_confidence': 0.85
         }
 
-    def load_baseline_data(self) -> np.ndarray:
+    def load_baseline_data(self) -> Optional[NDArray[Any]]:
         """Load baseline data for drift detection"""
         # In production, this would load actual baseline data
         # For demo, return None to skip drift detection
@@ -471,7 +466,7 @@ class ModelMonitor:
                     
                     # Generate and log report
                     report = self.generate_monitoring_report(1)
-                    self.logger.info(f"📊 Monitoring report: {report['model_metrics']}")
+                    self.logger.info(f"Monitoring report: {report['model_metrics']}")
                     
                     # Wait for next check
                     time.sleep(check_interval)
@@ -484,7 +479,7 @@ class ModelMonitor:
         monitoring_thread = threading.Thread(target=monitoring_loop, daemon=True)
         monitoring_thread.start()
         
-        self.logger.info(f"🔍 Continuous monitoring started (interval: {check_interval}s)")
+        self.logger.info(f"Continuous monitoring started (interval: {check_interval}s)")
         return monitoring_thread
 
 def main():
@@ -499,7 +494,7 @@ def main():
     # Generate initial report
     report = monitor.generate_monitoring_report(24)
     print("\n" + "="*80)
-    print("🔍 FACE MASK DETECTION - MODEL MONITORING REPORT")
+    print("FACE MASK DETECTION - MODEL MONITORING REPORT")
     print("="*80)
     print(json.dumps(report, indent=2, default=str))
     print("="*80)
@@ -509,7 +504,7 @@ def main():
         while True:
             time.sleep(60)
     except KeyboardInterrupt:
-        print("\n🛑 Monitoring stopped by user")
+        print("\nMonitoring stopped by user")
 
 if __name__ == "__main__":
     main()

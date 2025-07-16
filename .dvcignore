@@ -1,3 +1,54 @@
-# Add patterns of files dvc should ignore, which could improve
-# the performance. Learn more at
-# https://dvc.org/doc/user-guide/dvcignore
+# DVC ignore file for Face Mask Detection MLOps
+
+# Python cache and venvs
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+env/
+.venv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs and temp
+logs/
+*.log
+tmp/
+temp/
+.tmp/
+*.tmp
+*.bak
+*.old
+
+# Test and dev files
+tests/
+*_test.py
+test_*.py
+requirements-dev.txt
+
+# Documentation and markdown (ignore docs, but keep main README)
+docs/
+# *.md  # Uncomment if you want to ignore all markdown files
+# README.md  # Do NOT ignore this unless you want to
+
+# OS and backup files
+.DS_Store
+Thumbs.db
+
+# Security and secrets
+.env
+.env.*
+secrets/
+
+# MLflow and pipeline artifacts
+mlruns/
+mlflow.db
+
+# Notebooks (if not tracked)
+notebooks/development/
+*.ipynb

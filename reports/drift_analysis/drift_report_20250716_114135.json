@@ -1,0 +1,274 @@
+{
+  "analysis_timestamp": "2025-07-16T11:41:28.001413",
+  "dataset_info": {
+    "reference_size": 841,
+    "current_size": 4,
+    "drift_threshold": 0.05
+  },
+  "statistical_drift": {
+    "timestamp": "2025-07-16T11:41:16.809529",
+    "test_method": "ks",
+    "drift_detected": false,
+    "feature_drifts": {
+      "feature_0": {
+        "statistic": 0.3269916765755054,
+        "p_value": 0.6855549978572355,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_1": {
+        "statistic": 0.3373959571938169,
+        "p_value": 0.6508258389671023,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_2": {
+        "statistic": 0.31272294887039237,
+        "p_value": 0.7324028622215673,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_3": {
+        "statistic": 0.10939357907253269,
+        "p_value": 1.0,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_4": {
+        "statistic": 0.3638525564803805,
+        "p_value": 0.5600242644239914,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_5": {
+        "statistic": 0.4280618311533888,
+        "p_value": 0.3550387366444887,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_6": {
+        "statistic": 0.44797859690844233,
+        "p_value": 0.301010850537242,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_7": {
+        "statistic": 0.5517241379310345,
+        "p_value": 0.11671471709683585,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_8": {
+        "statistic": 0.3195600475624257,
+        "p_value": 0.7104627627018313,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_9": {
+        "statistic": 0.5862068965517241,
+        "p_value": 0.0805486381003269,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_10": {
+        "statistic": 0.31272294887039237,
+        "p_value": 0.7324028622215673,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_11": {
+        "statistic": 0.33620689655172414,
+        "p_value": 0.6548577793042446,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_12": {
+        "statistic": 0.3745541022592152,
+        "p_value": 0.5236735083960546,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_13": {
+        "statistic": 0.3275862068965517,
+        "p_value": 0.684066440856312,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_14": {
+        "statistic": 0.35998810939357906,
+        "p_value": 0.5735727961956493,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_15": {
+        "statistic": 0.2877526753864447,
+        "p_value": 0.8092447349780304,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_16": {
+        "statistic": 0.3192627824019025,
+        "p_value": 0.7116393316387677,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_17": {
+        "statistic": 0.6159334126040428,
+        "p_value": 0.05647635133501164,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_18": {
+        "statistic": 0.6539833531510107,
+        "p_value": 0.0341081370856617,
+        "is_drift": "True",
+        "drift_magnitude": "medium"
+      },
+      "feature_19": {
+        "statistic": 0.7728894173602854,
+        "p_value": 0.005538422117771025,
+        "is_drift": "True",
+        "drift_magnitude": "high"
+      },
+      "feature_20": {
+        "statistic": 0.6872770511296076,
+        "p_value": 0.02106845603382829,
+        "is_drift": "True",
+        "drift_magnitude": "medium"
+      },
+      "feature_21": {
+        "statistic": 0.3038049940546968,
+        "p_value": 0.7612115260833702,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_22": {
+        "statistic": 0.43103448275862066,
+        "p_value": 0.3468704652425817,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_23": {
+        "statistic": 0.4417360285374554,
+        "p_value": 0.3173435796590144,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_24": {
+        "statistic": 0.38347205707491083,
+        "p_value": 0.4942776716232492,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      },
+      "feature_25": {
+        "statistic": 0.4839476813317479,
+        "p_value": 0.218366815560126,
+        "is_drift": "False",
+        "drift_magnitude": "low"
+      }
+    },
+    "overall_drift_score": 0.41830924723314733,
+    "summary": {
+      "total_features": 26,
+      "drifted_features": 3,
+      "drift_percentage": 11.538461538461538,
+      "severity": "low"
+    }
+  },
+  "pca_drift": {
+    "timestamp": "2025-07-16T11:41:27.996413",
+    "method": "pca_based",
+    "pca_components": 10,
+    "explained_variance": [
+      0.7296478498808291,
+      0.24082765430020367,
+      0.01187448220009701,
+      0.005421233509592976,
+      0.0025552322783406857,
+      0.0024154855025578154,
+      0.0019143955212695728,
+      0.0013169877122674587,
+      0.0011128422342565778,
+      0.0007128346970789963
+    ],
+    "component_drifts": {
+      "pc_0": {
+        "statistic": 0.4396551724137931,
+        "p_value": 0.3230517705542884,
+        "is_drift": "False",
+        "explained_variance": 0.7296478498808291
+      },
+      "pc_1": {
+        "statistic": 0.3935790725326992,
+        "p_value": 0.46072590983262945,
+        "is_drift": "False",
+        "explained_variance": 0.24082765430020367
+      },
+      "pc_2": {
+        "statistic": 0.5101070154577884,
+        "p_value": 0.1733361192018324,
+        "is_drift": "False",
+        "explained_variance": 0.01187448220009701
+      },
+      "pc_3": {
+        "statistic": 0.4215219976218787,
+        "p_value": 0.37439275945402317,
+        "is_drift": "False",
+        "explained_variance": 0.005421233509592976
+      },
+      "pc_4": {
+        "statistic": 0.8585017835909632,
+        "p_value": 0.0008608405819986116,
+        "is_drift": "True",
+        "explained_variance": 0.0025552322783406857
+      },
+      "pc_5": {
+        "statistic": 0.4583828775267539,
+        "p_value": 0.2747670919033005,
+        "is_drift": "False",
+        "explained_variance": 0.0024154855025578154
+      },
+      "pc_6": {
+        "statistic": 0.6456599286563615,
+        "p_value": 0.03826367751137312,
+        "is_drift": "True",
+        "explained_variance": 0.0019143955212695728
+      },
+      "pc_7": {
+        "statistic": 0.4158739595719382,
+        "p_value": 0.3912513932909129,
+        "is_drift": "False",
+        "explained_variance": 0.0013169877122674587
+      },
+      "pc_8": {
+        "statistic": 0.6908442330558858,
+        "p_value": 0.019975769374788552,
+        "is_drift": "True",
+        "explained_variance": 0.0011128422342565778
+      },
+      "pc_9": {
+        "statistic": 0.8240190249702735,
+        "p_value": 0.0020266989228184635,
+        "is_drift": "True",
+        "explained_variance": 0.0007128346970789963
+      }
+    },
+    "weighted_drift_score": 0.4303614299400572,
+    "drift_detected": "True"
+  },
+  "overall_assessment": {
+    "drift_detected": "True",
+    "confidence_score": 0.4243353385866023,
+    "severity": "high",
+    "methods_agreeing": "1",
+    "total_methods": 2,
+    "consensus": "mixed"
+  },
+  "recommendations": [
+    "PCA analysis indicates structural changes in data. Investigate feature engineering pipeline.",
+    "Document current findings for drift tracking history.",
+    "Consider adjusting drift detection thresholds based on business requirements.",
+    "Set up automated alerts for future drift detection."
+  ],
+  "visualization_path": "reports\\drift_analysis\\drift_analysis_20250716_114135.html"
+}

@@ -1,0 +1,29 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements for inference
+COPY requirements-inference.txt .
+RUN pip install --default-timeout=300 --no-cache-dir -r requirements-inference.txt
+
+# Copy inference code
+COPY src/inference/ ./src/inference/
+COPY src/common/ ./src/common/
+COPY config/ ./config/
+COPY models/ ./models/
+
+# Set environment variables
+ENV PYTHONPATH=/app
+
+# Expose inference API port
+EXPOSE 8002
+
+# Run inference API
+CMD ["uvicorn", "src.inference.api:app", "--host", "0.0.0.0", "--port", "8002"]

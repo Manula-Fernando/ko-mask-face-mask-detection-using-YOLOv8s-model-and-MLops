@@ -1,87 +1,87 @@
-schema: "2.0"
+schema: '2.0'
 stages:
   data_preprocessing:
     cmd: python src/training/data_processing.py
     deps:
-      - path: config/config.yaml
-        hash: md5
-        md5: b34731eaf9000fb9effe08a08097edce
-        size: 5848
-      - path: data/raw/images/
-        hash: md5
-        md5: 354962b3b72da69dc64ca74fd428a5a7.dir
-        size: 416311262
-        nfiles: 853
-      - path: src/training/data_processing.py
-        hash: md5
-        md5: 0f42f3d01ae32661255f6c47a516a49f
-        size: 5398
+    - path: config/config.yaml
+      hash: md5
+      md5: b34731eaf9000fb9effe08a08097edce
+      size: 5848
+    - path: data/raw/images/
+      hash: md5
+      md5: 354962b3b72da69dc64ca74fd428a5a7.dir
+      size: 416311262
+      nfiles: 853
+    - path: src/training/data_processing.py
+      hash: md5
+      md5: 59cdd0044f88a50471b3cbf8b8af22e2
+      size: 5843
     outs:
-      - path: data/processed/yolo_dataset/
-        hash: md5
-        md5: 71f4dfa9a2a0f5241d04e108f41fc0a9.dir
-        size: 416706285
-        nfiles: 1709
+    - path: data/processed/yolo_dataset/
+      hash: md5
+      md5: b16443d49659df2f408152a2d85f37c8.dir
+      size: 628837952
+      nfiles: 2599
   model_training:
     cmd: python src/training/model.py
     deps:
-      - path: config/config.yaml
-        hash: md5
-        md5: b34731eaf9000fb9effe08a08097edce
-        size: 5848
-      - path: data/processed/yolo_dataset/
-        hash: md5
-        md5: 71f4dfa9a2a0f5241d04e108f41fc0a9.dir
-        size: 416706285
-        nfiles: 1709
-      - path: src/training/model.py
-        hash: md5
-        md5: 1566c07875ee22c24c309d4f184e9f22
-        size: 15605
+    - path: config/config.yaml
+      hash: md5
+      md5: b34731eaf9000fb9effe08a08097edce
+      size: 5848
+    - path: data/processed/yolo_dataset/
+      hash: md5
+      md5: b16443d49659df2f408152a2d85f37c8.dir
+      size: 628837952
+      nfiles: 2599
+    - path: src/training/model.py
+      hash: md5
+      md5: 1566c07875ee22c24c309d4f184e9f22
+      size: 15605
     outs:
-      - path: models/yolov8_real_face_mask_detection/training_metrics.json
-        hash: md5
-        md5: 52e1df2ef87a7bbfdefacd0d851a0996
-        size: 420
-      - path: models/yolov8_real_face_mask_detection/training_plots.json
-        hash: md5
-        md5: 99914b932bd37a50b983c5e7c90ae93b
-        size: 2
-      - path: models/yolov8_real_face_mask_detection/weights/best.pt
-        hash: md5
-        md5: 1eda22605754a96735be070ec6ddf537
-        size: 22499050
+    - path: models/yolov8_real_face_mask_detection/training_metrics.json
+      hash: md5
+      md5: 52e1df2ef87a7bbfdefacd0d851a0996
+      size: 420
+    - path: models/yolov8_real_face_mask_detection/training_plots.json
+      hash: md5
+      md5: 99914b932bd37a50b983c5e7c90ae93b
+      size: 2
+    - path: models/yolov8_real_face_mask_detection/weights/best.pt
+      hash: md5
+      md5: 1eda22605754a96735be070ec6ddf537
+      size: 22499050
   model_evaluation:
     cmd: python src/inference/predictor.py --evaluate
     deps:
-      - path: config/config.yaml
-        hash: md5
-        md5: b34731eaf9000fb9effe08a08097edce
-        size: 5848
-      - path: data/processed/yolo_dataset/test/images/
-        hash: md5
-        md5: 2093ac312f55248401ff8ffe5219d0a3.dir
-        size: 39545646
-        nfiles: 86
-      - path: data/processed/yolo_dataset/test/labels/
-        hash: md5
-        md5: 48d0daed2dfeef2cebddba3338b30b06.dir
-        size: 14079
-        nfiles: 86
-      - path: models/yolov8_real_face_mask_detection/weights/best.pt
-        hash: md5
-        md5: 1eda22605754a96735be070ec6ddf537
-        size: 22499050
-      - path: src/inference/predictor.py
-        hash: md5
-        md5: d0cc32867129b4896fd29f199f589a09
-        size: 9478
+    - path: config/config.yaml
+      hash: md5
+      md5: b34731eaf9000fb9effe08a08097edce
+      size: 5848
+    - path: data/processed/yolo_dataset/test/images/
+      hash: md5
+      md5: ba624f6e1162c4b161cc8485460ca097.dir
+      size: 108219166
+      nfiles: 228
+    - path: data/processed/yolo_dataset/test/labels/
+      hash: md5
+      md5: 22759d04417b423c44ca9b1465f627cf.dir
+      size: 38337
+      nfiles: 228
+    - path: models/yolov8_real_face_mask_detection/weights/best.pt
+      hash: md5
+      md5: 1eda22605754a96735be070ec6ddf537
+      size: 22499050
+    - path: src/inference/predictor.py
+      hash: md5
+      md5: d0cc32867129b4896fd29f199f589a09
+      size: 9478
     outs:
-      - path: models/yolov8_real_face_mask_detection/evaluation_metrics.json
-        hash: md5
-        md5: d41d8cd98f00b204e9800998ecf8427e
-        size: 0
-      - path: models/yolov8_real_face_mask_detection/evaluation_plots.json
-        hash: md5
-        md5: d41d8cd98f00b204e9800998ecf8427e
-        size: 0
+    - path: models/yolov8_real_face_mask_detection/evaluation_metrics.json
+      hash: md5
+      md5: d41d8cd98f00b204e9800998ecf8427e
+      size: 0
+    - path: models/yolov8_real_face_mask_detection/evaluation_plots.json
+      hash: md5
+      md5: d41d8cd98f00b204e9800998ecf8427e
+      size: 0

@@ -53,7 +53,7 @@ def parse_arguments():
     parser.add_argument(
         '--epochs', 
         type=int, 
-        default=50,
+        default=35,
         help='Number of training epochs'
     )
     

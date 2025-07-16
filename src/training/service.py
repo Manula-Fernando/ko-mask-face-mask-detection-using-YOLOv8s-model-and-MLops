@@ -16,7 +16,7 @@ from .data_processing import DataProcessor
 from ..common.logger import get_logger
 from ..common.utils import FileUtils, ConfigUtils
 from src.monitoring.metrics_collector import MetricsCollector
-from src.monitoring.drift_detector import DataDriftDetector
+from drift.drift_detector import DataDriftDetector
 
 logger = get_logger("training.service")
 
@@ -26,7 +26,7 @@ class TrainingService:
     def __init__(self, config_path: str = "config/config.yaml"):
         self.config = self._load_config(config_path)
         self.model_manager = ModelManager(self.config['mlflow']['tracking_uri'])
-        self.data_processor = DataProcessor(self.config['data'])
+        self.data_processor = DataProcessor()
         
         # Setup directories
         self.setup_directories()
@@ -35,43 +35,40 @@ class TrainingService:
     
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """Load training configuration"""
+        # Default configuration
+        default_config = {
+            'data': {
+                'class_names': ['with_mask', 'without_mask', 'mask_weared_incorrect'],
+                'data_dir': 'data/processed/yolo_dataset',
+                'raw_data_dir': 'data/raw'
+            },
+            'model': {
+                'name': 'yolov8s.pt',
+                'num_classes': 3,
+                'img_size': 640
+            },
+            'training': {
+                'epochs': 35,
+                'batch_size': 16,
+                'patience': 15,
+                'learning_rate': 0.01,
+                'optimizer': 'AdamW',
+                'weight_decay': 0.0005
+            },
+            'mlflow': {
+                'tracking_uri': 'http://localhost:5000',
+                'experiment_name': 'face_mask_detection'
+            },
+            'paths': {
+                'models_dir': 'models',
+                'logs_dir': 'logs',
+                'runs_dir': 'runs'
+            }
+        }
         try:
             config = ConfigUtils.load_config(config_path)
-            
-            # Default configuration
-            default_config = {
-                'data': {
-                    'class_names': ['with_mask', 'without_mask', 'mask_weared_incorrect'],
-                    'data_dir': 'data/processed/yolo_dataset',
-                    'raw_data_dir': 'data/raw'
-                },
-                'model': {
-                    'name': 'yolov8s.pt',
-                    'num_classes': 3,
-                    'img_size': 640
-                },
-                'training': {
-                    'epochs': 50,
-                    'batch_size': 16,
-                    'patience': 15,
-                    'learning_rate': 0.01,
-                    'optimizer': 'AdamW',
-                    'weight_decay': 0.0005
-                },
-                'mlflow': {
-                    'tracking_uri': 'http://localhost:5000',
-                    'experiment_name': 'face_mask_detection'
-                },
-                'paths': {
-                    'models_dir': 'models',
-                    'logs_dir': 'logs',
-                    'runs_dir': 'runs'
-                }
-            }
-            
             # Merge with defaults
             return ConfigUtils.merge_configs(default_config, config)
-            
         except Exception as e:
             logger.warning(f"Failed to load config from {config_path}, using defaults: {e}")
             return default_config

@@ -1,0 +1,31 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements for drift detection
+COPY requirements-drift.txt .
+RUN pip install --default-timeout=300 --no-cache-dir -r requirements-drift.txt
+
+# Copy drift detection code
+COPY src/drift/ ./src/drift/
+COPY src/common/ ./src/common/
+COPY config/ ./config/
+
+ENV PYTHONPATH=/app
+
+EXPOSE 8004
+
+# Health check (adjust endpoint as needed)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
+    CMD curl -f http://localhost:8004/health || exit 1
+
+# Run drift detection API service
+CMD ["uvicorn", "src.drift.api:app", "--host", "0.0.0.0", "--port", "8004"]

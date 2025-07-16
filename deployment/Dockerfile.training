@@ -1,0 +1,33 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements-training.txt .
+RUN pip install --default-timeout=300 --no-cache-dir -r requirements-training.txt
+
+# Copy source code
+COPY src/ ./src/
+COPY config/ ./config/
+COPY data/ ./data/
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV MLFLOW_TRACKING_URI=file:///app/mlruns
+
+# Create necessary directories
+RUN mkdir -p /app/models /app/logs /app/mlruns /app/reports
+
+# Training command
+CMD ["python", "src/train_pipeline.py"]
