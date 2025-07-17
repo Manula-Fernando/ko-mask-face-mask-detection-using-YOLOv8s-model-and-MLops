@@ -18,6 +18,7 @@ from dataclasses import dataclass, asdict
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import numpy as np
 import requests
 
 from ..common.logger import get_logger
