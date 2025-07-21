@@ -1,6 +1,8 @@
-# Face Mask Detection MLOps Pipeline
+# Ko Mask Face Mask Detection MLOps Pipeline
 
-A production-ready, end-to-end MLOps pipeline for real-time face mask detection using YOLOv8, MLflow, DVC, and modern best practices.
+https://github.com/user-attachments/assets/7d9e68b4-bb8e-4eb4-b3a2-014c70e080db
+
+Ko Mask is a production-ready, end-to-end MLOps pipeline for real-time face mask detection using YOLOv8, MLflow, DVC, and modern best practices.
 
 ## 🚀 Quick Start
 
